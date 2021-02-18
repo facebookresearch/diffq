@@ -7,6 +7,13 @@ in order to achieve a given trade-off between the model size and accuracy.
 ## Requirements
 
 DiffQ requires only a reasonably recent version of PyTorch.
+To install DiffQ, you can run from the root of the repository:
+
+```
+pip install .
+```
+
+You must do so before trying one of the examples.
 
 ## Usage
 
@@ -67,6 +74,13 @@ See the [API documentation][api].
 We provide two examples in the `examples/` folder. One is for CIFAR-10/100,
 using standard architecture such as Wide-ResNet, ResNet or MobileNet.
 The second is based on the [DeiT][deit] visual transformer.
+
+The DeiT example is provided as a patch on the original codebase at a specific
+commit. You can initialize the git submodule and apply the patch by running
+
+```
+examples/setup_deit.sh
+```
 
 
 ## Installation for development
