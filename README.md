@@ -1,7 +1,7 @@
 # Differentiable Quantization
 
-![tests badge](https://github.com/fairinternal/julius/workflows/tests/badge.svg)
-![cov badge](https://github.com/fairinternal/julius/workflows/cov%3E90%25/badge.svg)
+![tests badge](https://github.com/fairinternal/diffq/workflows/tests/badge.svg)
+![cov badge](https://github.com/fairinternal/diffq/workflows/cov%3E90%25/badge.svg)
 
 DiffQ performs differentiable quantization using pseudo quantization noise.
 It can automatically tune the number of bits used per weight or group of weight,
