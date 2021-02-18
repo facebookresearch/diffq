@@ -20,14 +20,14 @@ jobs:
         pip install '.[dev]'
 
     - name: Reset branch
-      run:
+      run: |
         git branch -f gh-docs main
         git checkout gh-docs
 
     - name: Make docs
-      run:
+      run: |
         make docs
 
     - name: Push branch
-      run:
+      run: |
         git push -f -u origin gh-docs
