@@ -1,15 +1,12 @@
 # Differentiable Quantization
 
+DiffQ performs differentiable quantization using pseudo quantization noise.
+It can automatically tune the number of bits used per weight or group of weight,
+in order to achieve a given trade-off between the model size and accuracy.
 
-## To the reviewer
+## Requirements
 
-You will find in the `diffq` folder our generic framework for Differentiable Quantization
-with pseudo quantization noise. In the `examples/` folder, you will find two applications,
-to CIFAR-10/100 and visual transformer training. The `diffq` package will be found
-automatically from the parent directory.
-However you will still need to install the required dependencies for each examples, using
-`pip install -r requirements.txt` from their respective subfolders.
-
+DiffQ requires only a reasonably recent version of PyTorch.
 
 ## Usage
 
@@ -40,6 +37,9 @@ for batch in loader:
     my_optim.zero_grad()
     # If you used a separate optimizer for DiffQ, call
     # quantizer.opt.zero_grad()
+
+    # The `mu` parameter here will control the tradeoff between model size
+    # and model accuracy.
     loss = F.mse_loss(x, y) + mu * quantizer.model_size()
     my_optim.step()
     # If you used a separate optimizer for DiffQ, call
@@ -60,7 +60,13 @@ quantizer.restore_quantized_state(torch.load("some_file.th"))
 
 ## Documentation
 
-To learn more on the API, open the file `docs/diffq/index.html` in your browser.
+See the [API documentation][api].
+
+## Examples
+
+We provide two examples in the `examples/` folder. One is for CIFAR-10/100,
+using standard architecture such as Wide-ResNet, ResNet or MobileNet.
+The second is based on the [DeiT][deit] visual transformer.
 
 
 ## Installation for development
@@ -72,7 +78,7 @@ pip install -e '.[dev]'
 ```
 
 
-## Test
+### Test
 
 You can run the unit tests with
 ```
@@ -81,5 +87,9 @@ make tests
 
 ## License
 
-See the `LICENSE` file. This code is provided only for the purpose
-of reviewing for the ICML 2021 conference. Any other use is prohibited.
+This repository is released under the CC-BY-NC 4.0. license as found in the
+[LICENSE](LICENSE) file.
+
+
+[api]: https://share.honu.io/diffq/docs/diffq/index.html
+[deit]: https://github.com/facebookresearch/deit
