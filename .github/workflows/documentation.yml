@@ -27,6 +27,7 @@ jobs:
     - name: Make docs
       run: |
         make docs
+        git add -f docs
 
     - name: Push branch
       run: |
