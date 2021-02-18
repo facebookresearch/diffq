@@ -6,7 +6,7 @@ in order to achieve a given trade-off between the model size and accuracy.
 
 ## Requirements
 
-DiffQ requires only a reasonably recent version of PyTorch.
+DiffQ requires Python 3.6, and a reasonably recent version of PyTorch (1.7.1 ideally).
 To install DiffQ, you can run from the root of the repository:
 
 ```
