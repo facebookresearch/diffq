@@ -1,0 +1,3 @@
+[submodule "examples/deit"]
+	path = examples/deit
+	url = https://github.com/facebookresearch/deit
