@@ -7,6 +7,8 @@ DiffQ performs differentiable quantization using pseudo quantization noise.
 It can automatically tune the number of bits used per weight or group of weight,
 in order to achieve a given trade-off between the model size and accuracy.
 
+Go read [our paper][paper] for more details.
+
 ## Requirements
 
 DiffQ requires Python 3.6, and a reasonably recent version of PyTorch (1.7.1 ideally).
@@ -110,3 +112,4 @@ This repository is released under the CC-BY-NC 4.0. license as found in the
 
 [api]: https://share.honu.io/diffq/docs/diffq/index.html
 [deit]: https://github.com/facebookresearch/deit
+[paper]: https://fb.workplace.com/groups/831302610278251/permalink/5030643487010788/
