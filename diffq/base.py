@@ -82,18 +82,12 @@ class BaseQuantizer:
 
     def _forward_pre_hook(self, module, input):
         if self.model.training:
-            if self._quantized:
-                for qparam in self._qparams:
-                    if qparam.other is None:
-                        qparam.param.data[:] = self._saved.pop(0)
-
-            self._quantized = False
             self._quantized_state = None
+            if self._quantized:
+                self.unquantize()
             if self._pre_forward_train():
                 self._fix_rnns()
-        elif not self._quantized:
-            self._saved = [qp.param.data.to('cpu', copy=True)
-                           for qp in self._qparams if qp.other is None]
+        else:
             self.quantize()
 
     def _forward_hook(self, module, input, output):
@@ -101,14 +95,34 @@ class BaseQuantizer:
             if self._post_forward_train():
                 self._fix_rnns(flatten=False)  # Hacky, next forward will flatten
 
-    def quantize(self):
+    def quantize(self, save=True):
         """
         Immediately apply quantization to the model parameters.
+        If `save` is True, save a copy of the unquantized parameters, that can be
+        restored with `unquantize()`.
         """
         if self._quantized:
             return
+        if save:
+            self._saved = [qp.param.data.to('cpu', copy=True)
+                           for qp in self._qparams if qp.other is None]
         self.restore_quantized_state(self.get_quantized_state())
         self._quantized = True
+        self._fix_rnns()
+
+    def unquantize(self):
+        """
+        Revert a previous call to `quantize()`.
+        """
+        if not self._quantized:
+            raise RuntimeError("Can only be called on a quantized model.")
+        if not self._saved:
+            raise RuntimeError("Nothing to restore.")
+        for qparam in self._qparams:
+            if qparam.other is None:
+                qparam.param.data[:] = self._saved.pop(0)
+        assert len(self._saved) == 0
+        self._quantized = False
         self._fix_rnns()
 
     def _pre_forward_train(self) -> bool:
