@@ -75,3 +75,4 @@ class QuantizeTest(unittest.TestCase):
         model = nn.Sequential(*[nn.Conv1d(32, 32, 4, 1) for _ in range(6)])
         quantizer = factory(model, min_size=0, exclude=["[024].*"])
         self.assertEqual(len(quantizer._qparams), 6)
+

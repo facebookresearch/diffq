@@ -28,7 +28,7 @@ class BaseQuantizer:
         other: tp.Optional[tp.Any]
 
     def __init__(self, model: torch.nn.Module, min_size: float = 0.01, float16: bool = False,
-                 exclude: tp.Optional[tp.List[str]] = ["bias"], detect_bound: bool = True):
+                 exclude: tp.Optional[tp.List[str]] = [], detect_bound: bool = True):
         self.model = model
         self.min_size = min_size
         self.float16 = float16
