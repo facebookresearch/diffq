@@ -1,0 +1,5 @@
+torch
+torchvision
+hydra_core
+hydra-colorlog
+submitit

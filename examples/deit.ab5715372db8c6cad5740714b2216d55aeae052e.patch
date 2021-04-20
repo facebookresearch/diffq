@@ -1,0 +1,316 @@
+diff --git a/distributed_train.sh b/distributed_train.sh
+new file mode 100755
+index 0000000..4c8fecf
+--- /dev/null
++++ b/distributed_train.sh
+@@ -0,0 +1,4 @@
++#!/bin/bash
++NUM_PROC=$1
++shift
++python -m torch.distributed.launch --nproc_per_node=$NUM_PROC main.py --world_size $NUM_PROC "$@"
+diff --git a/engine.py b/engine.py
+index 655b805..941a2cf 100644
+--- a/engine.py
++++ b/engine.py
+@@ -17,15 +17,16 @@ import utils
+ 
+ 
+ def train_one_epoch(model: torch.nn.Module, criterion: DistillationLoss,
+-                    data_loader: Iterable, optimizer: torch.optim.Optimizer,
++                    data_loader: Iterable, optimizers,
+                     device: torch.device, epoch: int, loss_scaler, max_norm: float = 0,
+                     model_ema: Optional[ModelEma] = None, mixup_fn: Optional[Mixup] = None,
+-                    set_training_mode=True):
++                    set_training_mode=True, quantizer=None, penalty=0.0):
+     model.train(set_training_mode)
+     metric_logger = utils.MetricLogger(delimiter="  ")
+     metric_logger.add_meter('lr', utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
++    metric_logger.add_meter('MS', utils.SmoothedValue(window_size=1, fmt='{value:.3f}'))
+     header = 'Epoch: [{}]'.format(epoch)
+-    print_freq = 10
++    print_freq = 100
+ 
+     for samples, targets in metric_logger.log_every(data_loader, print_freq, header):
+         samples = samples.to(device, non_blocking=True)
+@@ -38,25 +39,28 @@ def train_one_epoch(model: torch.nn.Module, criterion: DistillationLoss,
+             outputs = model(samples)
+             loss = criterion(samples, outputs, targets)
+ 
++        model_size = quantizer.model_size() if quantizer else 0
++        if quantizer and penalty > 0:
++            loss = loss + penalty * model_size
+         loss_value = loss.item()
+ 
+         if not math.isfinite(loss_value):
+             print("Loss is {}, stopping training".format(loss_value))
+             sys.exit(1)
+ 
+-        optimizer.zero_grad()
++        for opt in optimizers:
++            opt.zero_grad()
+ 
+-        # this attribute is added by timm on one optimizer (adahessian)
+-        is_second_order = hasattr(optimizer, 'is_second_order') and optimizer.is_second_order
+-        loss_scaler(loss, optimizer, clip_grad=max_norm,
+-                    parameters=model.parameters(), create_graph=is_second_order)
++        loss_scaler(loss, optimizers, clip_grad=max_norm,
++                    parameters=model.parameters())
+ 
+         torch.cuda.synchronize()
+         if model_ema is not None:
+             model_ema.update(model)
+ 
+         metric_logger.update(loss=loss_value)
+-        metric_logger.update(lr=optimizer.param_groups[0]["lr"])
++        metric_logger.update(lr=optimizers[0].param_groups[0]["lr"])
++        metric_logger.update(MS=model_size)
+     # gather the stats from all processes
+     metric_logger.synchronize_between_processes()
+     print("Averaged stats:", metric_logger)
+@@ -64,7 +68,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: DistillationLoss,
+ 
+ 
+ @torch.no_grad()
+-def evaluate(data_loader, model, device):
++def evaluate(data_loader, model, device, quantizer=None):
+     criterion = torch.nn.CrossEntropyLoss()
+ 
+     metric_logger = utils.MetricLogger(delimiter="  ")
+@@ -90,7 +94,11 @@ def evaluate(data_loader, model, device):
+         metric_logger.meters['acc5'].update(acc5.item(), n=batch_size)
+     # gather the stats from all processes
+     metric_logger.synchronize_between_processes()
+-    print('* Acc@1 {top1.global_avg:.3f} Acc@5 {top5.global_avg:.3f} loss {losses.global_avg:.3f}'
+-          .format(top1=metric_logger.acc1, top5=metric_logger.acc5, losses=metric_logger.loss))
++    if quantizer:
++        print('* Acc@1 {top1.global_avg:.3f} Acc@5 {top5.global_avg:.3f} loss {losses.global_avg:.3f} MS {quantizer:.3f}'
++              .format(top1=metric_logger.acc1, top5=metric_logger.acc5, losses=metric_logger.loss, quantizer=quantizer.true_model_size()))
++    else:
++        print('* Acc@1 {top1.global_avg:.3f} Acc@5 {top5.global_avg:.3f} loss {losses.global_avg:.3f}'
++              .format(top1=metric_logger.acc1, top5=metric_logger.acc5, losses=metric_logger.loss))
+ 
+     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
+diff --git a/main.py b/main.py
+index 06679f6..aac0305 100644
+--- a/main.py
++++ b/main.py
+@@ -15,7 +15,8 @@ from timm.models import create_model
+ from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
+ from timm.scheduler import create_scheduler
+ from timm.optim import create_optimizer
+-from timm.utils import NativeScaler, get_state_dict, ModelEma
++from timm.utils import get_state_dict, ModelEma
++from diffq import DiffQuantizer, UniformQuantizer
+ 
+ from datasets import build_dataset
+ from engine import train_one_epoch, evaluate
+@@ -25,6 +26,30 @@ import models
+ import utils
+ 
+ 
++class NativeScaler:
++    state_dict_key = "amp_scaler"
++
++    def __init__(self):
++        self._scaler = torch.cuda.amp.GradScaler()
++
++    def __call__(self, loss, optimizers, clip_grad=None, parameters=None, create_graph=False):
++        self._scaler.scale(loss).backward(create_graph=create_graph)
++        if clip_grad is not None:
++            assert parameters is not None
++            self._scaler.unscale_(optimizers[0])  # unscale the gradients of optimizer's assigned params in-place
++            torch.nn.utils.clip_grad_norm_(parameters, clip_grad)
++
++        for optimizer in optimizers:
++            self._scaler.step(optimizer)
++        self._scaler.update()
++
++    def state_dict(self):
++        return self._scaler.state_dict()
++
++    def load_state_dict(self, state_dict):
++        self._scaler.load_state_dict(state_dict)
++
++
+ def get_args_parser():
+     parser = argparse.ArgumentParser('DeiT training and evaluation script', add_help=False)
+     parser.add_argument('--batch-size', default=64, type=int)
+@@ -42,7 +67,7 @@ def get_args_parser():
+ 
+     parser.add_argument('--model-ema', action='store_true')
+     parser.add_argument('--no-model-ema', action='store_false', dest='model_ema')
+-    parser.set_defaults(model_ema=True)
++    parser.set_defaults(model_ema=False)
+     parser.add_argument('--model-ema-decay', type=float, default=0.99996, help='')
+     parser.add_argument('--model-ema-force-cpu', action='store_true', default=False, help='')
+ 
+@@ -124,6 +149,16 @@ def get_args_parser():
+     parser.add_argument('--mixup-mode', type=str, default='batch',
+                         help='How to apply mixup/cutmix params. Per "batch", "pair", or "elem"')
+ 
++    # quantization parameters
++    parser.add_argument('--penalty', default=0, type=float, help="Penalty for the model size with DiffQ.")
++    parser.add_argument('--group_size', default=8, type=int, help="Group size for DiffQ.")
++    parser.add_argument('--quant_lr', default=5e-4, type=float, help="Learning rate for the bits parameters.")
++    parser.add_argument('--min_size', default=0.1, type=float, help="Minimum parameter size to be quantized.")
++    parser.add_argument('--min_bits', default=3, type=float, help="Minimum number of bits to use.")
++    # uniform quantization
++    parser.add_argument('--bits', default=0, type=int, help="Number of bits for uniform quantization")
++    parser.add_argument('--qat', action='store_true', default=False, help="Use QAT.")
++
+     # Distillation parameters
+     parser.add_argument('--teacher-model', default='regnety_160', type=str, metavar='MODEL',
+                         help='Name of teacher model to train (default: "regnety_160"')
+@@ -136,7 +171,7 @@ def get_args_parser():
+     parser.add_argument('--finetune', default='', help='finetune from checkpoint')
+ 
+     # Dataset parameters
+-    parser.add_argument('--data-path', default='/datasets01/imagenet_full_size/061417/', type=str,
++    parser.add_argument('--data-path', default='path_to_imnet/', type=str,
+                         help='dataset path')
+     parser.add_argument('--data-set', default='IMNET', choices=['CIFAR', 'IMNET', 'INAT', 'INAT19'],
+                         type=str, help='Image Net dataset path')
+@@ -144,7 +179,7 @@ def get_args_parser():
+                         choices=['kingdom', 'phylum', 'class', 'order', 'supercategory', 'family', 'genus', 'name'],
+                         type=str, help='semantic granularity')
+ 
+-    parser.add_argument('--output_dir', default='',
++    parser.add_argument('--output_dir', default='./output/exp1',
+                         help='path where to save, empty for no saving')
+     parser.add_argument('--device', default='cuda',
+                         help='device to use for training / testing')
+@@ -162,6 +197,7 @@ def get_args_parser():
+     parser.set_defaults(pin_mem=True)
+ 
+     # distributed training parameters
++    parser.add_argument('--local_rank', default=0, type=int)
+     parser.add_argument('--world_size', default=1, type=int,
+                         help='number of distributed processes')
+     parser.add_argument('--dist_url', default='env://', help='url used to set up distributed training')
+@@ -173,6 +209,8 @@ def main(args):
+ 
+     print(args)
+ 
++    assert not args.model_ema, "EMA not supported with DiffQ"
++
+     if args.distillation_type != 'none' and args.finetune and not args.eval:
+         raise NotImplementedError("Finetuning with distillation not yet supported")
+ 
+@@ -295,15 +333,11 @@ def main(args):
+             resume='')
+ 
+     model_without_ddp = model
+-    if args.distributed:
+-        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
+-        model_without_ddp = model.module
+-    n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
+-    print('number of params:', n_parameters)
+ 
+     linear_scaled_lr = args.lr * args.batch_size * utils.get_world_size() / 512.0
+     args.lr = linear_scaled_lr
+     optimizer = create_optimizer(args, model_without_ddp)
++    optimizers = [optimizer]
+     loss_scaler = NativeScaler()
+ 
+     lr_scheduler, _ = create_scheduler(args, optimizer)
+@@ -342,6 +376,20 @@ def main(args):
+     criterion = DistillationLoss(
+         criterion, teacher_model, args.distillation_type, args.distillation_alpha, args.distillation_tau
+     )
++    # setup quantizer
++    if args.penalty:
++        quantizer = DiffQuantizer(model, group_size=args.group_size,
++                                  min_size=args.min_size, min_bits=args.min_bits)
++        quantizer.opt = torch.optim.Adam([{"params": []}])
++        quantizer.setup_optimizer(quantizer.opt, lr=args.quant_lr)
++        optimizers.append(quantizer.opt)
++    elif args.bits and args.qat:
++        quantizer = UniformQuantizer(
++            model, min_size=args.min_size,
++            bits=args.bits, qat=args.qat)
++        quantizer.opt = None
++    else:
++        quantizer = None
+ 
+     output_dir = Path(args.output_dir)
+     if args.resume:
+@@ -353,6 +401,8 @@ def main(args):
+         model_without_ddp.load_state_dict(checkpoint['model'])
+         if not args.eval and 'optimizer' in checkpoint and 'lr_scheduler' in checkpoint and 'epoch' in checkpoint:
+             optimizer.load_state_dict(checkpoint['optimizer'])
++            if 'quant_opt' in checkpoint and quantizer and quantizer.opt:
++                quantizer.opt.load_state_dict(checkpoint['quant_opt'])
+             lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
+             args.start_epoch = checkpoint['epoch'] + 1
+             if args.model_ema:
+@@ -365,6 +415,15 @@ def main(args):
+         print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
+         return
+ 
++    if args.distributed:
++        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
++        model_without_ddp = model.module
++    n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
++    print('number of params:', n_parameters)
++
++    model_size = sum(p.numel() for p in model.parameters()) * 4 / 2**20
++    print(f'Initial model size: {model_size} MB')
++
+     print(f"Start training for {args.epochs} epochs")
+     start_time = time.time()
+     max_accuracy = 0.0
+@@ -374,10 +433,10 @@ def main(args):
+ 
+         train_stats = train_one_epoch(
+             model, criterion, data_loader_train,
+-            optimizer, device, epoch, loss_scaler,
++            optimizers, device, epoch, loss_scaler,
+             args.clip_grad, model_ema, mixup_fn,
+-            set_training_mode=args.finetune == ''  # keep in eval mode during finetuning
+-        )
++            set_training_mode=args.finetune == '',  # keep in eval mode during finetuning
++            quantizer=quantizer, penalty=args.penalty)
+ 
+         lr_scheduler.step(epoch)
+         if args.output_dir:
+@@ -388,12 +447,12 @@ def main(args):
+                     'optimizer': optimizer.state_dict(),
+                     'lr_scheduler': lr_scheduler.state_dict(),
+                     'epoch': epoch,
+-                    'model_ema': get_state_dict(model_ema),
++                    'quant_opt': quantizer.opt.get_state_dict() if quantizer and quantizer.opt else None,
+                     'scaler': loss_scaler.state_dict(),
+                     'args': args,
+                 }, checkpoint_path)
+ 
+-        test_stats = evaluate(data_loader_val, model, device)
++        test_stats = evaluate(data_loader_val, model, device, quantizer=quantizer)
+         print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
+         max_accuracy = max(max_accuracy, test_stats["acc1"])
+         print(f'Max accuracy: {max_accuracy:.2f}%')
+diff --git a/run_with_submitit.py b/run_with_submitit.py
+index a0da744..6d6c8c2 100644
+--- a/run_with_submitit.py
++++ b/run_with_submitit.py
+@@ -123,4 +123,4 @@ def main():
+ 
+ 
+ if __name__ == "__main__":
+-    main()
++    main()
+\ No newline at end of file
+diff --git a/utils.py b/utils.py
+index bdb3b79..e10a9fc 100644
+--- a/utils.py
++++ b/utils.py
+@@ -222,8 +222,8 @@ def init_distributed_mode(args):
+         args.rank = int(os.environ['SLURM_PROCID'])
+         args.gpu = args.rank % torch.cuda.device_count()
+     else:
+-        print('Not using distributed mode')
+-        args.distributed = False
++        args.rank = args.local_rank
++        args.gpu = args.local_rank
+         return
+ 
+     args.distributed = True

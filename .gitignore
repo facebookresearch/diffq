@@ -1,0 +1,11 @@
+__pycache__
+*.egg-info
+*.th
+build
+dist
+.coverage
+examples/cifar/data/
+examples/cifar/outputs/
+examples/deit/output/
+notebooks
+docs

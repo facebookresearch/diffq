@@ -1,0 +1,1011 @@
+diff --git a/ensure.sh b/ensure.sh
+new file mode 100755
+index 00000000..d188f80f
+--- /dev/null
++++ b/ensure.sh
+@@ -0,0 +1,22 @@
++#!/bin/zsh
++
++cd "$(dirname "$0")"
++run="./run.py -G24"
++extra=
++if [[ $1 == r ]]; then
++    extra=-r
++fi
++
++function ensure () {
++    if eval $run $* ; then
++    else
++        eval $run $extra $*
++        echo
++    fi
++}
++
++ensure
++ensure -b4
++ensure -b8
++ensure -p 1  -g 16
++ensure -p 10 -g 16
+diff --git a/eval.sh b/eval.sh
+new file mode 100755
+index 00000000..276b722a
+--- /dev/null
++++ b/eval.sh
+@@ -0,0 +1,33 @@
++#!/bin/bash
++if [[ -z WIKITEXT_PATH ]]; then
++    echo "Export WIKITEXT_PATH=..."
++    exit 1;
++fi
++if [[ -z SAVE_PATH ]]; then
++    echo "Export SAVE_PATH=..."
++    exit 1;
++fi
++if [[ -z $1 ]]; then
++    echo "Please provide model folder name as first argument."
++    exit 1;
++fi
++path=$SAVE_PATH/$1/checkpoint_best.pt
++if [[ ! -f $path ]]; then
++    echo "Checkpoint path $path not found."
++    exit 1;
++fi
++
++act_flags=
++if [[ -n $2 ]]; then
++    echo "Will use quantization method $2"
++    act_flags="--act --act-samples 50 --act-fake --act-method $2"
++fi
++
++fairseq-eval-lm $WIKITEXT_PATH \
++    --path $path \
++    --sample-break-mode complete \
++    --max-tokens 3072 \
++    --tokens-per-sample 3072 \
++    --context-window 2560 \
++    --softmax-batch 1024 \
++    --gen-subset test $act_flags
+diff --git a/fairseq/checkpoint_utils.py b/fairseq/checkpoint_utils.py
+index 79c81142..7e21a9ea 100644
+--- a/fairseq/checkpoint_utils.py
++++ b/fairseq/checkpoint_utils.py
+@@ -351,6 +351,17 @@ def load_model_ensemble_and_task(
+ 
+             # build model for ensemble
+             model = task.build_model(cfg.model)
++            from diffq import DiffQuantizer, UniformQuantizer
++            quant = cfg.quantization
++            kw = {}
++            kw['min_size'] = quant.min_size
++            if quant.bits:
++                quantizer = UniformQuantizer(model, bits=quant.bits, qat=True, **kw)
++                quantizer.penalty = 0
++            elif quant.penalty:
++                quantizer = DiffQuantizer(model, group_size=quant.group_size,
++                                          **kw, min_bits=quant.min_bits)
++                quantizer.no_optimizer()
+ 
+             model.load_state_dict(state["model"], strict=strict, model_cfg=cfg.model)
+ 
+diff --git a/fairseq/config/config.yaml b/fairseq/config/config.yaml
+index e20d914b..186371f9 100644
+--- a/fairseq/config/config.yaml
++++ b/fairseq/config/config.yaml
+@@ -9,6 +9,7 @@ defaults:
+     - model: null
+     - criterion: cross_entropy
+     - optimizer: null
++    - quantizer: null
+     - lr_scheduler: fixed
+     - bpe: null
+     - tokenizer: null
+diff --git a/fairseq/dataclass/configs.py b/fairseq/dataclass/configs.py
+index 2968d2ab..a78480ab 100644
+--- a/fairseq/dataclass/configs.py
++++ b/fairseq/dataclass/configs.py
+@@ -499,6 +499,40 @@ class OptimizationConfig(FairseqDataclass):
+ 
+ 
+ @dataclass
++class QuantizationConfig(FairseqDataclass):
++    min_size: float = field(
++        default=0.01, metadata={"help": "Minimum size to quantize parameter"}
++    )
++    bits: int = field(
++        default=0, metadata={"help": "Number of bits (for QAT)."}
++    )
++    penalty: float = field(
++        default=0, metadata={"help": "Model size penalty (for DiffQ)"}
++    )
++    bits_lr: float = field(
++        default=0.01, metadata={"help": "LR for bits"}
++    )
++    min_bits: int = field(
++        default=2, metadata={"help": "Minimum number of bits"}
++    )
++    group_size: int = field(
++        default=8,
++        metadata={
++            "help": "DiffQ group size."
++        },
++    )
++
++    # Activation quantization
++    act: bool = field(default=False, metadata={"help": "Perform activation quantization"})
++    act_samples: int = field(default=50, metadata={"help": "Training sample to tune activation scales"})
++    act_method: str = field(
++        default="minmax_pc",
++        metadata={"help": "Scale method for activations, minmax, minmax_pc or histogram."})
++    act_fake: bool = field(default=False, metadata={"help": "Fake quantization (on CUDA, using QAT)"})
++    act_debug: bool = field(default=False, metadata={"help": "Debug pipeline, no quantization"})
++
++
++@dataclass
+ class CheckpointConfig(FairseqDataclass):
+     save_dir: str = field(
+         default="checkpoints", metadata={"help": "path to save checkpoints"}
+@@ -914,6 +948,7 @@ class FairseqConfig(FairseqDataclass):
+     distributed_training: DistributedTrainingConfig = DistributedTrainingConfig()
+     dataset: DatasetConfig = DatasetConfig()
+     optimization: OptimizationConfig = OptimizationConfig()
++    quantization: QuantizationConfig = QuantizationConfig()
+     checkpoint: CheckpointConfig = CheckpointConfig()
+     bmuf: FairseqBMUFConfig = FairseqBMUFConfig()
+     generation: GenerationConfig = GenerationConfig()
+diff --git a/fairseq/distributed_utils.py b/fairseq/distributed_utils.py
+index 8f98ac88..af6722f3 100644
+--- a/fairseq/distributed_utils.py
++++ b/fairseq/distributed_utils.py
+@@ -150,6 +150,7 @@ def infer_init_method(cfg: DistributedTrainingConfig, force_distributed=False):
+                     # number of pipelines across all nodes.
+                     cfg.distributed_world_size = nnodes * num_pipelines_per_node
+                 else:
++                    cfg.distributed_world_size = ntasks_per_node * nnodes
+                     assert ntasks_per_node == cfg.distributed_world_size // nnodes
+                     cfg.distributed_no_spawn = True
+                     cfg.distributed_rank = int(os.environ.get("SLURM_PROCID"))
+diff --git a/fairseq/models/transformer.py b/fairseq/models/transformer.py
+index fa4c2985..00cad6a0 100644
+--- a/fairseq/models/transformer.py
++++ b/fairseq/models/transformer.py
+@@ -666,6 +666,10 @@ class TransformerDecoder(FairseqIncrementalDecoder):
+             nn.init.normal_(
+                 self.output_projection.weight, mean=0, std=self.output_embed_dim ** -0.5
+             )
++        self.quant = torch.quantization.QuantStub()
++        self.quant2 = torch.quantization.QuantStub()
++        self.dequant = torch.quantization.DeQuantStub()
++        self.fun = torch.nn.quantized.FloatFunctional()
+ 
+     def build_decoder_layer(self, args, no_encoder_attn=False):
+         layer = TransformerDecoderLayer(args, no_encoder_attn)
+@@ -794,6 +798,7 @@ class TransformerDecoder(FairseqIncrementalDecoder):
+             x = self.project_in_dim(x)
+ 
+         if positions is not None:
++            # x = self.fun.add(x, self.quant2(positions))
+             x += positions
+ 
+         if self.layernorm_embedding is not None:
+@@ -803,6 +808,7 @@ class TransformerDecoder(FairseqIncrementalDecoder):
+ 
+         # B x T x C -> T x B x C
+         x = x.transpose(0, 1)
++        x = self.quant(x)
+ 
+         self_attn_padding_mask: Optional[Tensor] = None
+         if self.cross_self_attention or prev_output_tokens.eq(self.padding_idx).any():
+@@ -834,7 +840,7 @@ class TransformerDecoder(FairseqIncrementalDecoder):
+                 need_attn=bool((idx == alignment_layer)),
+                 need_head_weights=bool((idx == alignment_layer)),
+             )
+-            inner_states.append(x)
++            inner_states.append(self.dequant(x))
+             if layer_attn is not None and idx == alignment_layer:
+                 attn = layer_attn.float().to(x)
+ 
+@@ -851,9 +857,12 @@ class TransformerDecoder(FairseqIncrementalDecoder):
+         # T x B x C -> B x T x C
+         x = x.transpose(0, 1)
+ 
++        x = self.dequant(x)
+         if self.project_out_dim is not None:
+             x = self.project_out_dim(x)
+ 
++        if attn is not None:
++            attn = self.dequant(attn)
+         return x, {"attn": [attn], "inner_states": inner_states}
+ 
+     def output_layer(self, features):
+@@ -881,7 +890,7 @@ class TransformerDecoder(FairseqIncrementalDecoder):
+             self._future_mask = torch.triu(
+                 utils.fill_with_neg_inf(torch.zeros([dim, dim])), 1
+             )
+-        self._future_mask = self._future_mask.to(tensor)
++        self._future_mask = self._future_mask.to(tensor.device)
+         return self._future_mask[:dim, :dim]
+ 
+     def upgrade_state_dict_named(self, state_dict, name):
+diff --git a/fairseq/modules/multihead_attention.py b/fairseq/modules/multihead_attention.py
+index 6ab86245..68d875a7 100644
+--- a/fairseq/modules/multihead_attention.py
++++ b/fairseq/modules/multihead_attention.py
+@@ -87,6 +87,8 @@ class MultiheadAttention(nn.Module):
+         self.reset_parameters()
+ 
+         self.onnx_trace = False
++        self.dequant = torch.quantization.DeQuantStub()
++        self.quant = torch.quantization.QuantStub()
+ 
+     def prepare_for_onnx_export_(self):
+         self.onnx_trace = True
+@@ -158,6 +160,7 @@ class MultiheadAttention(nn.Module):
+             # A workaround for quantization to work. Otherwise JIT compilation
+             # treats bias in linear module as method.
+             and not torch.jit.is_scripting()
++            and False  # we are quantizing here
+         ):
+             assert key is not None and value is not None
+             return F.multi_head_attention_forward(
+@@ -214,6 +217,8 @@ class MultiheadAttention(nn.Module):
+             q = self.q_proj(query)
+             k = self.k_proj(key)
+             v = self.v_proj(value)
++
++        q, k, v = [self.dequant(i) for i in [q, k, v]]
+         q *= self.scaling
+ 
+         if self.bias_k is not None:
+@@ -364,6 +369,7 @@ class MultiheadAttention(nn.Module):
+             attn = attn.contiguous().view(tgt_len, bsz, embed_dim)
+         else:
+             attn = attn.transpose(0, 1).contiguous().view(tgt_len, bsz, embed_dim)
++        attn = self.quant(attn)
+         attn = self.out_proj(attn)
+         attn_weights: Optional[Tensor] = None
+         if need_weights:
+diff --git a/fairseq/modules/transformer_layer.py b/fairseq/modules/transformer_layer.py
+index 6f3c79de..bf8a1b75 100644
+--- a/fairseq/modules/transformer_layer.py
++++ b/fairseq/modules/transformer_layer.py
+@@ -235,6 +235,8 @@ class TransformerDecoderLayer(nn.Module):
+         self.need_attn = True
+ 
+         self.onnx_trace = False
++        self.fun = torch.nn.quantized.FloatFunctional()
++        self.fun2 = torch.nn.quantized.FloatFunctional()
+ 
+     def build_fc1(self, input_dim, output_dim, q_noise, qn_block_size):
+         return quant_noise(nn.Linear(input_dim, output_dim), q_noise, qn_block_size)
+@@ -272,7 +274,7 @@ class TransformerDecoderLayer(nn.Module):
+         self.onnx_trace = True
+ 
+     def residual_connection(self, x, residual):
+-        return residual + x
++        return self.fun.add(residual, x)
+ 
+     def forward(
+         self,
+@@ -351,11 +353,13 @@ class TransformerDecoderLayer(nn.Module):
+             attn_mask=self_attn_mask,
+         )
+         x = self.dropout_module(x)
+-        x = self.residual_connection(x, residual)
++        # x = self.residual_connection(x, residual)
++        x = self.fun.add(x, residual)
+         if not self.normalize_before:
+             x = self.self_attn_layer_norm(x)
+ 
+         if self.encoder_attn is not None and encoder_out is not None:
++            assert False
+             residual = x
+             if self.normalize_before:
+                 x = self.encoder_attn_layer_norm(x)
+@@ -393,7 +397,8 @@ class TransformerDecoderLayer(nn.Module):
+         x = self.activation_dropout_module(x)
+         x = self.fc2(x)
+         x = self.dropout_module(x)
+-        x = self.residual_connection(x, residual)
++        # x = self.residual_connection(x, residual)
++        x = self.fun2.add(x, residual)
+         if not self.normalize_before:
+             x = self.final_layer_norm(x)
+         if self.onnx_trace and incremental_state is not None:
+diff --git a/fairseq/optim/fairseq_optimizer.py b/fairseq/optim/fairseq_optimizer.py
+index a1c1d219..6030b1f0 100644
+--- a/fairseq/optim/fairseq_optimizer.py
++++ b/fairseq/optim/fairseq_optimizer.py
+@@ -12,6 +12,7 @@ class FairseqOptimizer(object):
+     def __init__(self, cfg):
+         super().__init__()
+         self.cfg = cfg
++        self.second_optim = None
+ 
+     @classmethod
+     def add_args(cls, parser):
+@@ -73,7 +74,10 @@ class FairseqOptimizer(object):
+ 
+     def state_dict(self):
+         """Return the optimizer's state dict."""
+-        return self.optimizer.state_dict()
++        if self.second_optim is not None:
++            return {"a": self.optimizer.state_dict(), "b": self.second_optim.state_dict()}
++        else:
++            return self.optimizer.state_dict()
+ 
+     def load_state_dict(self, state_dict, optimizer_overrides=None):
+         """Load an optimizer state dict.
+@@ -83,7 +87,11 @@ class FairseqOptimizer(object):
+         allows us to resume training from a checkpoint using a new set of
+         optimizer args.
+         """
+-        self.optimizer.load_state_dict(state_dict)
++        if self.second_optim is not None:
++            self.optimizer.load_state_dict(state_dict["a"])
++            self.second_optim.load_state_dict(state_dict["b"])
++        else:
++            self.optimizer.load_state_dict(state_dict)
+ 
+         if optimizer_overrides is not None and len(optimizer_overrides) > 0:
+             # override learning rate, momentum, etc. with latest values
+@@ -123,12 +131,16 @@ class FairseqOptimizer(object):
+                 self.optimizer.step(closure, groups=groups)
+             else:
+                 self.optimizer.step(closure)
++        if self.second_optim is not None:
++            self.second_optim.step()
+ 
+     def zero_grad(self):
+         """Clears the gradients of all optimized parameters."""
+         for p in self.params:
+             p.grad = None
+         self.optimizer.zero_grad()
++        if self.second_optim is not None:
++            self.second_optim.zero_grad()
+ 
+     @property
+     def supports_memory_efficient_fp16(self):
+diff --git a/fairseq/options.py b/fairseq/options.py
+index b79443a1..97d7c560 100644
+--- a/fairseq/options.py
++++ b/fairseq/options.py
+@@ -19,6 +19,7 @@ from fairseq.dataclass.configs import (
+     GenerationConfig,
+     InteractiveConfig,
+     OptimizationConfig,
++    QuantizationConfig,
+ )
+ from fairseq.dataclass.utils import gen_parser_from_dataclass
+ 
+@@ -38,6 +39,7 @@ def get_training_parser(default_task="translation"):
+     add_distributed_training_args(parser)
+     add_model_args(parser)
+     add_optimization_args(parser)
++    add_quantization_args(parser)
+     add_checkpoint_args(parser)
+     return parser
+ 
+@@ -62,6 +64,7 @@ def get_eval_lm_parser(default_task="language_modeling"):
+     add_dataset_args(parser, gen=True)
+     add_distributed_training_args(parser, default_world_size=1)
+     add_eval_lm_args(parser)
++    add_quantization_args(parser)
+     return parser
+ 
+ 
+@@ -314,6 +317,14 @@ def add_optimization_args(parser):
+     return group
+ 
+ 
++def add_quantization_args(parser):
++    group = parser.add_argument_group("quantization")
++    # fmt: off
++    gen_parser_from_dataclass(group, QuantizationConfig())
++    # fmt: on
++    return group
++
++
+ def add_checkpoint_args(parser):
+     group = parser.add_argument_group("checkpoint")
+     # fmt: off
+diff --git a/fairseq/tasks/fairseq_task.py b/fairseq/tasks/fairseq_task.py
+index eb5e6a76..06b48223 100644
+--- a/fairseq/tasks/fairseq_task.py
++++ b/fairseq/tasks/fairseq_task.py
+@@ -26,6 +26,8 @@ class FairseqTask(object):
+     Datasets, initializing the Model/Criterion and calculating the loss.
+     """
+ 
++    quantizer = None
++
+     @classmethod
+     def add_args(cls, parser):
+         """Add task-specific arguments to the parser."""
+@@ -400,7 +402,7 @@ class FairseqTask(object):
+         )
+ 
+     def train_step(
+-        self, sample, model, criterion, optimizer, update_num, ignore_grad=False
++        self, sample, model, criterion, optimizer, update_num, ignore_grad=False, quantizer=None
+     ):
+         """
+         Do forward and backward, and return the loss as computed by *criterion*
+@@ -426,6 +428,11 @@ class FairseqTask(object):
+         model.set_num_updates(update_num)
+         with torch.autograd.profiler.record_function("forward"):
+             loss, sample_size, logging_output = criterion(model, sample)
++            if quantizer and quantizer.penalty:
++                self.quantizer = quantizer
++                ms = quantizer.model_size()
++                loss = loss + quantizer.penalty * ms
++                self._ms = ms.item()
+         if ignore_grad:
+             loss *= 0
+         with torch.autograd.profiler.record_function("backward"):
+@@ -439,6 +446,9 @@ class FairseqTask(object):
+         return loss, sample_size, logging_output
+ 
+     def optimizer_step(self, optimizer, model, update_num):
++        if hasattr(self, 'quantizer'):
++            if hasattr(self.quantizer, 'check_unused'):
++                self.quantizer.check_unused()
+         optimizer.step()
+ 
+     def build_dataset_for_inference(
+diff --git a/fairseq/trainer.py b/fairseq/trainer.py
+index a6c10136..7a9e607c 100644
+--- a/fairseq/trainer.py
++++ b/fairseq/trainer.py
+@@ -353,7 +353,7 @@ class Trainer(object):
+ 
+         if last_optim_state is not None and not reset_optimizer:
+             # rebuild optimizer after loading model, since params may have changed
+-            self._build_optimizer()
++            # self._build_optimizer()
+ 
+             # only reload optimizer and lr_scheduler if they match
+             last_optim = self._optim_history[-1]
+@@ -497,13 +497,15 @@ class Trainer(object):
+         self._dummy_batch = batch
+ 
+     @metrics.aggregate("train")
+-    def train_step(self, samples, raise_oom=False):
++    def train_step(self, samples, raise_oom=False, quantizer=None):
+         """Do forward, backward and parameter update."""
+         self._set_seed()
+         self.model.train()
+         self.criterion.train()
+         self.zero_grad()
+ 
++        self._diffq_quantizer = quantizer
++
+         metrics.log_start_time("train_wall", priority=800, round=0)
+ 
+         # forward and backward pass
+@@ -536,9 +538,19 @@ class Trainer(object):
+                         optimizer=self.optimizer,
+                         update_num=self.get_num_updates(),
+                         ignore_grad=is_dummy_batch,
++                        quantizer=quantizer
+                     )
+                     del loss
+ 
++                    if quantizer is not None:
++                        metrics.log_scalar(
++                            "ms",
++                            quantizer.model_size(),
++                            priority=700,
++                            round=1,
++                            weight=0,
++                        )
++
+                 logging_outputs.append(logging_output)
+                 sample_size += sample_size_i
+ 
+@@ -810,6 +822,14 @@ class Trainer(object):
+ 
+         # log validation stats
+         logging_output = self._reduce_and_log_stats(logging_outputs, sample_size)
++        if self._diffq_quantizer is not None:
++            metrics.log_scalar(
++                "ms",
++                self._diffq_quantizer.true_model_size(),
++                priority=700,
++                round=1,
++                weight=0,
++            )
+ 
+         return logging_output
+ 
+diff --git a/fairseq_cli/eval_lm.py b/fairseq_cli/eval_lm.py
+index 4501cac6..063e35e7 100644
+--- a/fairseq_cli/eval_lm.py
++++ b/fairseq_cli/eval_lm.py
+@@ -45,6 +45,7 @@ def eval_lm(
+     softmax_batch: int = False,
+     remove_bos_token: bool = False,
+     device: Optional[torch.device] = None,
++    act_samples=None,
+ ):
+     """
+     Args:
+@@ -108,6 +109,11 @@ def eval_lm(
+         if "net_input" not in sample:
+             continue
+ 
++        if act_samples is not None:
++            act_samples -= 1
++            if act_samples == -1:
++                break
++
+         sample = utils.move_to_cuda(sample, device=device)
+ 
+         gen_timer.start()
+@@ -248,6 +254,23 @@ def main(cfg: DictConfig, **unused_kwargs):
+     # Initialize the task using the current *cfg*
+     task = tasks.setup_task(cfg.task)
+ 
++    import sys
++
++    def info(type, value, tb):
++        if hasattr(sys, 'ps1') or not sys.stderr.isatty():
++        # we are in interactive mode or we don't have a tty-like
++        # device, so we call the default hook
++            sys.__excepthook__(type, value, tb)
++        else:
++            import traceback, pdb
++            # we are NOT in interactive mode, print the exception...
++            traceback.print_exception(type, value, tb)
++            print
++            # ...then start the debugger in post-mortem mode.
++            # pdb.pm() # deprecated
++            pdb.post_mortem(tb) # more "modern"
++    sys.excepthook = info
++
+     # Load ensemble
+     logger.info("loading model(s) from {}".format(cfg.common_eval.path))
+     models, model_args, task = checkpoint_utils.load_model_ensemble_and_task(
+@@ -272,13 +295,130 @@ def main(cfg: DictConfig, **unused_kwargs):
+         if use_cuda and not cfg.distributed_training.pipeline_model_parallel:
+             model.cuda()
+         model.prepare_for_inference_(cfg)
++        model.eval()
+ 
+     assert len(models) > 0
+-
+     logger.info(
+         "num. model params: {:,}".format(sum(p.numel() for p in models[0].parameters()))
+     )
+ 
++    if cfg.quantization.act and not cfg.quantization.act_debug:
++        assert len(models) == 1
++        model = models[0]
++        from torch.quantization import qconfig
++        if cfg.quantization.act_method == "minmax":
++            klass = qconfig.MovingAverageMinMaxObserver
++            activation = klass
++        elif cfg.quantization.act_method == "minmax_pc":
++            klass = qconfig.PerChannelMinMaxObserver
++            activation = klass.with_args(ch_axis=2)
++        else:
++            klass = qconfig.HistogramObserver
++            activation = klass
++        if cfg.quantization.act_fake:
++            model.qconfig = qconfig.QConfig(
++                activation=activation,
++                weight=qconfig.FakeQuantize.with_args(observer=qconfig.MinMaxObserver))
++        else:
++            model.qconfig = qconfig.QConfig(
++                activation=activation,
++                weight=qconfig.MinMaxObserver)
++        model.decoder.embed_tokens.qconfig = None
++        model.decoder.adaptive_softmax.qconfig = None
++        if cfg.quantization.act_fake:
++            torch.quantization.prepare_qat(model, inplace=True)
++            for m in model.modules():
++                if hasattr(m, 'disable_fake_quant'):
++                    m.disable_fake_quant()
++        else:
++            torch.quantization.prepare(model, inplace=True)
++
++    if cfg.quantization.act:
++        # Tune the observer with activations from the train set.
++        task.load_dataset('train')
++        dataset = task.dataset('train')
++        logger.info(
++            "{} {} {} examples".format(cfg.task.data, 'train', len(dataset))
++        )
++        itr = task.eval_lm_dataloader(
++            dataset=dataset,
++            max_tokens=cfg.dataset.max_tokens or 36000,
++            batch_size=cfg.dataset.batch_size,
++            max_positions=utils.resolve_max_positions(
++                *[model.max_positions() for model in models]
++            ),
++            num_shards=max(
++                cfg.dataset.num_shards,
++                cfg.distributed_training.distributed_world_size,
++            ),
++            shard_id=max(
++                cfg.dataset.shard_id,
++                cfg.distributed_training.distributed_rank,
++            ),
++            num_workers=cfg.dataset.num_workers,
++            data_buffer_size=cfg.dataset.data_buffer_size,
++            context_window=cfg.eval_lm.context_window,
++        )
++        itr = progress_bar.progress_bar(
++            itr,
++            log_format=cfg.common.log_format,
++            log_interval=cfg.common.log_interval,
++            default_log_format=("tqdm" if not cfg.common.no_progress_bar else "simple"),
++        )
++
++        results = eval_lm(
++            models=models,
++            source_dictionary=task.source_dictionary,
++            batch_iterator=itr,
++            post_process=cfg.common_eval.post_process,
++            output_word_probs=cfg.eval_lm.output_word_probs,
++            output_word_stats=cfg.eval_lm.output_word_stats,
++            target_dictionary=task.target_dictionary,
++            softmax_batch=cfg.eval_lm.softmax_batch,
++            remove_bos_token=getattr(cfg.task, "add_bos_token", False),
++            act_samples=cfg.quantization.act_samples,
++        )
++
++        logger.info(
++            "Loss (base 2): {:.4f}, Perplexity: {:.2f}".format(
++                results["loss"], results["perplexity"]
++            )
++        )
++        if cfg.quantization.act_debug:
++            # Do nothing
++            pass
++        elif cfg.quantization.act_fake:
++            # If fake quantization, we iterate over all activation observer
++            # and dynamically replace them with a QAT observer, keeping the same
++            # histogram, or min/max etc.
++            for mod in list(model.modules()):
++                for n, child in list(mod.named_children()):
++                    if isinstance(child, klass):  # only transform the activation observers
++                        fq = qconfig.FakeQuantize(activation)
++                        mod._modules[n] = fq  # dynamically replace previous observer
++                        child.cpu()  # Histogram observer needs that
++                        fq.activation_post_process = child  # set the old observer on the new QAT module.
++                        fq.disable_observer()  # we dont want to update anymore the scales.
++                        fq.enable_fake_quant()  # this will emulate quantization on GPU.
++                        device = next(iter(model.parameters())).device
++
++                        # Set the scale and zero_point manually, as this is not copied when disable_observer is set.
++                        _scale, _zero_point = [i.to(device) for i in fq.calculate_qparams()]
++                        fq.scale.resize_(_scale.shape)
++                        fq.scale.copy_(_scale)
++                        fq.zero_point.resize_(_zero_point.shape)
++                        fq.zero_point.copy_(_zero_point)
++                        fq.cuda()
++            for m in model.modules():
++                if hasattr(m, 'enable_fake_quant'):
++                    m.enable_fake_quant()
++                    m.disable_observer()
++        else:
++            # Real cpu based quantization, super duper slow, but important to run on a few examples
++            # to make sure we didn't miss something in the quantization.
++            model.cpu()
++            torch.quantization.convert(model, inplace=True)
++
+     # Load dataset splits
+     task.load_dataset(cfg.dataset.gen_subset)
+     dataset = task.dataset(cfg.dataset.gen_subset)
+@@ -314,7 +454,9 @@ def main(cfg: DictConfig, **unused_kwargs):
+         log_interval=cfg.common.log_interval,
+         default_log_format=("tqdm" if not cfg.common.no_progress_bar else "simple"),
+     )
+-
++    eval_device = 'cuda' if use_cuda else 'cpu'
++    if cfg.quantization.act and not cfg.quantization.act_fake:
++        eval_device = 'cpu'
+     results = eval_lm(
+         models=models,
+         source_dictionary=task.source_dictionary,
+@@ -325,6 +467,7 @@ def main(cfg: DictConfig, **unused_kwargs):
+         target_dictionary=task.target_dictionary,
+         softmax_batch=cfg.eval_lm.softmax_batch,
+         remove_bos_token=getattr(cfg.task, "add_bos_token", False),
++        device=eval_device,
+     )
+ 
+     logger.info(
+diff --git a/fairseq_cli/train.py b/fairseq_cli/train.py
+index 11562226..9983f588 100644
+--- a/fairseq_cli/train.py
++++ b/fairseq_cli/train.py
+@@ -10,6 +10,7 @@ Train a new model on one or across multiple GPUs.
+ import argparse
+ import logging
+ import math
++from pathlib import Path
+ import os
+ import sys
+ from typing import Dict, Optional, Any, List, Tuple, Callable
+@@ -47,6 +48,20 @@ def main(cfg: DictConfig) -> None:
+ 
+     utils.import_user_module(cfg.common)
+ 
++    cp_path = Path(cfg.checkpoint.save_dir)
++    rank = cfg.distributed_training.distributed_rank
++    num_run = 0
++    for num_run in range(999):
++        log_path = cp_path / f"train.{num_run:03d}.log.{rank}"
++        if not log_path.exists():
++            break
++    fh = logging.FileHandler(log_path)
++    fh.setLevel(logging.INFO)
++    root = logging.getLogger()
++    formatter = root.handlers[0].formatter
++    fh.setFormatter(formatter)
++    root.addHandler(fh)
++
+     assert (
+         cfg.dataset.max_tokens is not None or cfg.dataset.batch_size is not None
+     ), "Must specify batch size either with --max-tokens or --batch-size"
+@@ -93,9 +108,22 @@ def main(cfg: DictConfig) -> None:
+     else:
+         quantizer = None
+ 
++    from diffq import DiffQuantizer, UniformQuantizer
++    kw = {}
++    kw['min_size'] = cfg.quantization.min_size
++    if cfg.quantization.bits:
++        quantizer = UniformQuantizer(model, bits=cfg.quantization.bits, qat=True, **kw)
++        quantizer.penalty = 0
++    elif cfg.quantization.penalty:
++        quantizer = DiffQuantizer(model, group_size=cfg.quantization.group_size,
++                                  **kw, min_bits=cfg.quantization.min_bits)
++        quantizer.penalty = cfg.quantization.penalty
++        second_optim = torch.optim.Adam([{'params': []}], lr=cfg.quantization.bits_lr)
++        quantizer.setup_optimizer(second_optim)
++
+     # Build trainer
+     if cfg.common.model_parallel_size == 1:
+-        trainer = Trainer(cfg, task, model, criterion, quantizer)
++        trainer = Trainer(cfg, task, model, criterion, None)
+     else:
+         trainer = MegatronTrainer(cfg, task, model, criterion)
+ 
+@@ -110,6 +138,9 @@ def main(cfg: DictConfig) -> None:
+             cfg.dataset.batch_size,
+         )
+     )
++    if cfg.quantization.penalty:
++        quantizer.clear_optimizer(trainer.optimizer.optimizer)
++        trainer.optimizer.second_optim = second_optim
+ 
+     # Load the latest checkpoint if one is available and restore the
+     # corresponding train iterator
+@@ -124,6 +155,7 @@ def main(cfg: DictConfig) -> None:
+     lr = trainer.get_lr()
+     train_meter = meters.StopwatchMeter()
+     train_meter.start()
++
+     while epoch_itr.next_epoch_idx <= max_epoch:
+         if lr <= cfg.optimization.stop_min_lr:
+             logger.info(
+@@ -134,7 +166,11 @@ def main(cfg: DictConfig) -> None:
+             break
+ 
+         # train for one epoch
+-        valid_losses, should_stop = train(cfg, trainer, task, epoch_itr)
++        valid_losses, should_stop = train(cfg, trainer, task, epoch_itr, quantizer)
++        if quantizer is not None:
++            ms = quantizer.true_model_size()
++            cms = quantizer.compressed_model_size()
++            logger.info(f'Epoch {epoch_itr.epoch} | Model Size {ms:.2f} | Compressed {cms:.2f}')
+         if should_stop:
+             break
+ 
+@@ -182,7 +218,7 @@ def should_stop_early(cfg: DictConfig, valid_loss: float) -> bool:
+ 
+ @metrics.aggregate("train")
+ def train(
+-    cfg: DictConfig, trainer: Trainer, task: tasks.FairseqTask, epoch_itr
++    cfg: DictConfig, trainer: Trainer, task: tasks.FairseqTask, epoch_itr, quantizer=None
+ ) -> Tuple[List[Optional[float]], bool]:
+     """Train the model for one epoch and return validation losses."""
+     # Initialize data iterator
+@@ -234,7 +270,7 @@ def train(
+         with metrics.aggregate("train_inner"), torch.autograd.profiler.record_function(
+             "train_step-%d" % i
+         ):
+-            log_output = trainer.train_step(samples)
++            log_output = trainer.train_step(samples, quantizer=quantizer)
+ 
+         if log_output is not None:  # not OOM, overflow, ...
+             # log mid-epoch stats
+diff --git a/run.py b/run.py
+new file mode 100755
+index 00000000..2a13974c
+--- /dev/null
++++ b/run.py
+@@ -0,0 +1,181 @@
++#!/usr/bin/env python3
++
++import argparse
++import getpass
++from pathlib import Path
++import os
++import shlex
++from shutil import rmtree
++import pickle
++import sys
++
++import submitit
++
++
++if 'WIKITEXT_PATH' in os.environ:
++    wikitext_path = os.environ['WIKITEXT_PATH']
++else:
++    print("Please export path to wikitext-103 as `export WIKITEXT_PATH=...`")
++    sys.exit(1)
++
++
++if 'SAVE_PATH' in os.environ:
++    SAVE_PATH = Path(os.environ['SAVE_PATH'])
++else:
++    print("Please export path to save checkpoints to as `export SAVE_PATH=...`")
++    sys.exit(1)
++
++BASE = shlex.split(f"""
++python -m fairseq_cli.train --task
++    language_modeling {wikitext_path} --max-epoch 250\
++    --adaptive-input --adaptive-input-cutoff 20000,60000 --adaptive-input-factor 4 \
++    --adaptive-softmax-cutoff 20000,60000 --adaptive-softmax-dropout 0.2 \
++    --adaptive-softmax-factor 4.0 \
++    --tie-adaptive-proj --tie-adaptive-weights \
++    --arch transformer_lm_gbw \
++    --attention-dropout 0.1 --dropout 0.2 --relu-dropout 0.1 \
++    --decoder-layerdrop 0.1 \
++    --clip-norm 0.1 --criterion adaptive_loss \
++    --ddp-backend no_c10d \
++    --decoder-attention-heads 8 --decoder-embed-dim 1024 --decoder-ffn-embed-dim 4096 \
++    --decoder-input-dim 1024 \
++    --decoder-layers 16 --decoder-normalize-before --decoder-output-dim 1024 \
++    --min-lr 0.0001 --lr-period-updates 270000 --lr-scheduler cosine --lr-shrink 0.75  \
++    --lr 1.0 --t-mult 2.0 \
++    --max-tokens 3072 --tokens-per-sample 3072 --momentum 0.99 --optimizer nag \
++    --sample-break-mode none --update-freq 1 \
++    --warmup-init-lr 1e-07 --warmup-updates 16000 \
++    --weight-decay 0 --seed 1 --stop-min-lr 1e-09 \
++    --save-interval 5 --distributed-port 45231
++""")
++
++
++def try_load(path: Path, load=pickle.load, mode="rb"):
++    """
++    Try to load from a path using torch.load, and handles various failure cases.
++    Return None upon failure.
++    """
++    try:
++        return load(open(path, mode))
++    except (IOError, OSError, pickle.UnpicklingError, RuntimeError, EOFError) as exc:
++        # Trying to list everything that can go wrong.
++        print(
++            f"An error happened when trying to load from {path}, "
++            f"this file will be ignored: {exc}")
++        return None
++
++
++class CheckpointableCommand(submitit.helpers.Checkpointable, submitit.helpers.CommandFunction):
++    pass
++
++
++def main():
++    parser = argparse.ArgumentParser('run.py')
++    parser.add_argument('-d', '--dist', action='store_true')
++    parser.add_argument('-p', '--penalty', type=float)
++    parser.add_argument('-g', '--group_size', type=int)
++    parser.add_argument('-b', '--bits', type=int)
++    parser.add_argument('--min-bits', type=int)
++    parser.add_argument('--bits-lr', type=float)
++    parser.add_argument('--min-size', type=float)
++    parser.add_argument('-L', '--bits_lr', type=float)
++    parser.add_argument('--decoder-layerdrop', type=float)
++
++    parser.add_argument('--update-freq', type=int)
++    parser.add_argument('-R', '--restart', action='store_true')
++    parser.add_argument('-r', '--reschedule', action='store_true')
++    parser.add_argument('-G', '--gpus', type=int)
++    parser.add_argument('-C', '--cancel', action='store_true')
++    parser.add_argument('--label')
++    parser.add_argument('--dev', action='store_const',
++                        const='dev', dest='partition', default='learnfair')
++    parser.add_argument('--prio', action='store_const',
++                        const='priority', dest='partition', default='learnfair')
++
++    args = parser.parse_args()
++
++    cmd = list(BASE)
++
++    name = "exp"
++    for key in ["penalty", "bits", "group_size", "bits_lr",
++                "min_size", "min_bits", "update_freq", "decoder_layerdrop"]:
++        val = getattr(args, key)
++        if val is not None:
++            key = key.replace('_', '-')
++            if val is True:
++                name += f"_{key}"
++                cmd += [f"--{key}"]
++            else:
++                name += f"_{key}={val}"
++                cmd += [f"--{key}", str(val)]
++    if args.label is not None:
++        name += f"_{args.label}"
++
++    cp_path = SAVE_PATH / name
++    job_file = cp_path / 'job.pkl'
++    if args.restart and cp_path.exists():
++        res = input('Restart? [yN]')
++        if res.lower() != 'y':
++            return
++        job = try_load(job_file)
++        if job is not None:
++            print(f"Canceling previous job {job.job_id} with state {job.state}")
++            job.cancel()
++        rmtree(cp_path)
++    cp_path.mkdir(parents=True, exist_ok=True)
++    cmd += ["--save-dir", str(cp_path)]
++
++    print(" ".join(shlex.quote(i) for i in cmd))
++    if not args.gpus:
++        env = dict(os.environ)
++        if not args.dist:
++            env['CUDA_VISIBLE_DEVICES'] = '0'
++        os.execvpe("python", cmd, env)
++
++    cmd += ["--no-progress-bar"]
++    job = try_load(job_file)
++    launch = job is None
++    if job is not None:
++        if job.state.startswith('CANCELLED') or job.state in ["FAILED", "TIMEOUT"]:
++            if args.reschedule:
++                launch = True
++            else:
++                print(f"Previous job {job.job_id} is failed or canceled")
++                sys.exit(1)
++        if job.state == "COMPLETED":
++            print(f"Previous job {job.job_id} completed successfully")
++        else:
++            print(f"Found previous job {job.job_id} with state {job.state}")
++            if args.cancel:
++                print("Canceling job")
++                job.cancel()
++
++    if launch:
++        nodes = args.gpus // 8
++        gpus = min(args.gpus, 8)
++        assert args.gpus % gpus == 0
++        target = CheckpointableCommand(cmd)
++        executor = submitit.SlurmExecutor(folder=cp_path / "submitit")
++        slurm = {
++            'partition': args.partition,
++            'mem': f'{20 * gpus}GB',
++            'cpus_per_task': 10,
++            'gpus_per_task': 1,
++            'time': 60 * 24,
++            'ntasks_per_node': gpus,
++            'nodes': nodes,
++            'constraint': 'volta32gb',
++            'setup': ['export MKL_THREADING_LAYER=GNU',
++                      'module load cudnn/v8.0.3.33-cuda.11.0 NCCL/2.8.3-1-cuda.11.0 cuda/11.0'],
++        }
++        if args.partition == 'priority':
++            slurm['comment'] = 'for code release'
++        executor.update_parameters(job_name=name, **slurm)
++        job = executor.submit(target)
++        pickle.dump(job, open(job_file, 'wb'))
++        print(f"Started new job with id {job.job_id}")
++    print(f"All good, go check {cp_path} for logs")
++
++
++if __name__ == "__main__":
++    main()

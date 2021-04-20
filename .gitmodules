@@ -1,0 +1,6 @@
+[submodule "examples/deit"]
+	path = examples/deit
+	url = https://github.com/facebookresearch/deit
+[submodule "examples/fairseq"]
+	path = examples/fairseq
+	url = https://github.com/pytorch/fairseq
