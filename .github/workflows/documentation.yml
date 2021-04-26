@@ -19,8 +19,8 @@ jobs:
 
     - name: Reset branch
       run: |
-        git branch -f gh-docs main
-        git checkout gh-docs
+        git branch -f gh-pages main
+        git checkout gh-pages
 
     - name: Make docs
       run: |
@@ -29,4 +29,4 @@ jobs:
 
     - name: Push branch
       run: |
-        git push -f -u origin gh-docs
+        git push -f -u origin gh-pages
