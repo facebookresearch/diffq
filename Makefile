@@ -1,6 +1,6 @@
 default: tests
 
-all: linter default docs upload dist
+all: linter tests docs dist
 
 linter:
 	flake8 diffq

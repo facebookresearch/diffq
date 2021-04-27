@@ -121,7 +121,7 @@ This repository is released under the CC-BY-NC 4.0. license as found in the
 The files `examples/cifar/src/mobilenet.py` and `examples/cifar/src/src/resnet.py` are taken from [kuangliu/pytorch-cifar](https://github.com/kuangliu/pytorch-cifar), released as MIT.
 The file `examples/cifar/src/wide_resnet.py` is taken from [meliketoy/wide-resnet](https://github.com/meliketoy/wide-resnet.pytorch), released as MIT. See each file headers for the detailed license.
 
-[api]: https://facebookresearch.github.io/diffq/docs/diffq/index.html
+[api]: https://share.honu.io/diffq/docs/diffq/index.html
 [deit]: https://github.com/facebookresearch/deit
 [fairseq]: https://github.com/pytorch/fairseq
 [paper]: https://arxiv.org/abs/2104.09987
