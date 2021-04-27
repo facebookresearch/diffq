@@ -1,7 +1,7 @@
 # Differentiable Model Compression via Pseudo Quantization Noise
-![linter badge](https://github.com/fairinternal/diffq/workflows/linter/badge.svg)
-![tests badge](https://github.com/fairinternal/diffq/workflows/tests/badge.svg)
-![cov badge](https://github.com/fairinternal/diffq/workflows/cov%3E90%25/badge.svg)
+![linter badge](https://github.com/facebookresearch/diffq/workflows/linter/badge.svg)
+![tests badge](https://github.com/facebookresearch/diffq/workflows/tests/badge.svg)
+![cov badge](https://github.com/facebookresearch/diffq/workflows/cov%3E90%25/badge.svg)
 
 DiffQ performs differentiable quantization using pseudo quantization noise.
 It can automatically tune the number of bits used per weight or group of weight,
