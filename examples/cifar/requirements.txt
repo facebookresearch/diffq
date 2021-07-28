@@ -1,5 +1,5 @@
 torch
 torchvision
-hydra_core
-hydra-colorlog
+hydra_core<1.1
+hydra-colorlog<1.1
 submitit
