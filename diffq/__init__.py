@@ -10,9 +10,11 @@ This package implements different quantization strategies:
 
 - `diffq.uniform.UniformQuantizer`: classic uniform quantization over n bits.
 - `diffq.diffq.DiffQuantizer`: differentiable quantizer based on scaled noise injection.
+- `diffq.lsq.LSQ`: Learnt Step size Quantizer based on [Esser et al. 2019] https://arxiv.org/abs/1902.08153
 
 Also, do check `diffq.base.BaseQuantizer` for the common methods of all Quantizers.
 """
 
 from .uniform import UniformQuantizer
 from .diffq import DiffQuantizer
+from .lsq import LSQ

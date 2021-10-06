@@ -40,7 +40,8 @@ quantizer.setup_optimizer(quantizer.opt)
 # Distributed data parallel must be created after DiffQuantizer!
 dmodel = torch.distributed.DistributedDataParallel(...)
 
-# Then go on training as usual, just don't forget to call my_model.train() and my_model.eval().
+# Then go on training as usual, just don't forget to call my_model.train() and my_model.eval(),
+# which will automatically quantize the model appropriately.
 penalty = 1e-3
 for batch in loader:
     ...
@@ -54,7 +55,7 @@ for batch in loader:
     # If you used a separate optimizer for DiffQ, call
     # quantizer.opt.step()
 
-# To get the true "naive" model size call
+# To get the true model size with when doing proper bit packing.
 quantizer.true_model_size()
 
 # To get the gzipped model size without actually dumping to disk
