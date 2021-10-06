@@ -37,9 +37,9 @@ setup(
     url=URL,
     packages=['diffq'],
     install_requires=['Cython', 'numpy', 'torch'],
-    ext_modules=Extension(
-        "bitpack",
-        sources=["bitpack.pyx"]),
+    ext_modules=[Extension(
+        "diffq.bitpack",
+        sources=["bitpack.pyx"])],
     extras_require={'dev': ['coverage', 'flake8', 'pdoc3']},
     include_package_data=True,
     license='Creative Commons Attribution-NonCommercial 4.0 International',
