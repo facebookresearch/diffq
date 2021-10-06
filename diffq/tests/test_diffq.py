@@ -93,6 +93,9 @@ class TestDiffQ(QuantizeTest):
         model.eval()
         model(x)
         for p, ref in zip(params, refs):
+            self.assertAlmostEqual(torch.norm(p.data - ref).item(), 0)
+        quant.quantize()
+        for p, ref in zip(params, refs):
             self.assertNotAlmostEqual(torch.norm(p.data - ref).item(), 0)
         model.train()
         model(x)

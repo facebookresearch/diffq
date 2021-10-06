@@ -278,7 +278,7 @@ index 06679f6..aac0305 100644
                      'lr_scheduler': lr_scheduler.state_dict(),
                      'epoch': epoch,
 -                    'model_ema': get_state_dict(model_ema),
-+                    'quant_opt': quantizer.opt.get_state_dict() if quantizer and quantizer.opt else None,
++                    'quant_opt': quantizer.opt.state_dict() if quantizer and quantizer.opt else None,
                      'scaler': loss_scaler.state_dict(),
                      'args': args,
                  }, checkpoint_path)

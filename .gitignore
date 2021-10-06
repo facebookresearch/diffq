@@ -9,3 +9,4 @@ examples/cifar/outputs/
 examples/deit/output/
 notebooks
 docs
+bitpack.c

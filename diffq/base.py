@@ -3,7 +3,8 @@
 #
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
-
+"""Base class for all quantizers."""
+from contextlib import contextmanager
 from dataclasses import dataclass
 from concurrent import futures
 from fnmatch import fnmatch
@@ -35,10 +36,10 @@ class BaseQuantizer:
         self.exclude = exclude
         self.detect_bound = detect_bound
         self._quantized = False
+        self._need_unquantize = None
         self._pre_handle = self.model.register_forward_pre_hook(self._forward_pre_hook)
         self._post_handle = self.model.register_forward_hook(self._forward_hook)
 
-        self._quantized_state = None
         self._qparams = []
         self._float16 = []
         self._others = []
@@ -83,41 +84,57 @@ class BaseQuantizer:
     def _forward_pre_hook(self, module, input):
         if self.model.training:
             self._quantized_state = None
-            if self._quantized:
-                self.unquantize()
+            self.unquantize()
             if self._pre_forward_train():
                 self._fix_rnns()
         else:
-            self.quantize()
+            assert self._need_unquantize is None
+            self._need_unquantize = self.quantize()
 
     def _forward_hook(self, module, input, output):
         if self.model.training:
             if self._post_forward_train():
                 self._fix_rnns(flatten=False)  # Hacky, next forward will flatten
+        else:
+            if self._need_unquantize:
+                self._need_unquantize = None
+                self.unquantize()
 
-    def quantize(self, save=True):
+    def quantize(self):
         """
         Immediately apply quantization to the model parameters.
-        If `save` is True, save a copy of the unquantized parameters, that can be
-        restored with `unquantize()`.
+        Model parameters are saved to later allow restoring the unquantized state.
+
+        Note that you shouldn't need to call this for model evaluation, as long as
+        you properly call `model.train()` and `model.eval()`, but this can be
+        useful for weight inspection.
         """
         if self._quantized:
-            return
-        if save:
-            self._saved = [qp.param.data.to('cpu', copy=True)
-                           for qp in self._qparams if qp.other is None]
+            return False
+        self._saved = [qp.param.data.to('cpu', copy=True)
+                       for qp in self._qparams if qp.other is None]
         self.restore_quantized_state(self.get_quantized_state())
         self._quantized = True
         self._fix_rnns()
+        return True
+
+    @contextmanager
+    def enter_quantize(self):
+        """Context manager for entering quantized state."""
+        self.quantize()
+        try:
+            yield
+        finally:
+            self.unquantize()
 
     def unquantize(self):
         """
         Revert a previous call to `quantize()`.
         """
         if not self._quantized:
-            raise RuntimeError("Can only be called on a quantized model.")
+            return
         if not self._saved:
-            raise RuntimeError("Nothing to restore.")
+            raise RuntimeError("Nothing to restore. This shouldn't happen")
         for qparam in self._qparams:
             if qparam.other is None:
                 qparam.param.data[:] = self._saved.pop(0)
@@ -151,18 +168,6 @@ class BaseQuantizer:
                 rnn.flatten_parameters()
 
     def get_quantized_state(self):
-        """
-        Returns sufficient quantized information to rebuild the model state.
-
-        ..Note::
-            To achieve maximum compression, you should compress this with
-            gzip or other, as quantized weights are not optimally coded!
-        """
-        if self._quantized_state is None:
-            self._quantized_state = self._get_quantized_state()
-        return self._quantized_state
-
-    def _get_quantized_state(self):
         """
         Actual implementation for `get_quantized_state`.
         """
