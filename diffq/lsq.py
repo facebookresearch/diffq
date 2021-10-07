@@ -12,8 +12,9 @@ import typing as tp
 
 import torch
 
+from . import bitpack
 from .base import BaseQuantizer
-from .utils import simple_repr
+from .utils import capture_init, simple_repr
 
 
 class LSQ(BaseQuantizer):
@@ -24,6 +25,7 @@ class LSQ(BaseQuantizer):
     class _QuantizedParam(BaseQuantizer._QuantizedParam):
         scale: torch.nn.Parameter
 
+    @capture_init
     def __init__(self, model: torch.nn.Module, bits: int = 8, min_size: float = 0.01,
                  float16: bool = False, suffix: str = "_lsq", exclude=[], detect_bound=True):
         assert 0 < bits <= 15
@@ -148,6 +150,19 @@ class LSQ(BaseQuantizer):
     def _unquantize_param(self, qparam: _QuantizedParam, quantized: tp.Any) -> torch.Tensor:
         index, scale = quantized
         return index.float() * scale
+
+    def _bit_pack_param(self, qparam, quantized):
+        levels, scale = quantized
+        packed = bitpack.pack(levels + 2 ** (self.bits - 1))
+        return (packed, scale)
+
+    def _bit_unpack_param(self, qparam, packed):
+        """Unpack bitpacked representation. Should be overriden
+        """
+        packed_levels, scale = packed
+        levels = bitpack.unpack(packed_levels, qparam.param)
+        levels -= 2 ** (self.bits - 1)
+        return (levels, scale)
 
     def detach(self):
         super().detach()

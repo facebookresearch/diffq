@@ -63,6 +63,7 @@ quant:
   min_bits: 2  # minimal number of bits for DiffQ
   init_bits: 8  # initial number of bits for DiffQ
   max_bits: 15  # max number of bits for DiffQ
+  exclude: []  # exclude patterns, e.g. bias
   qat: False  # quantization aware training to be used with uniform qunatization
   lr: 1e-3  # learning rate for the bits parameters
   adam: True  # use a separate optimizer for the bits parameters

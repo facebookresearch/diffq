@@ -6,6 +6,7 @@ linter:
 	flake8 diffq
 
 tests:
+	python3 setup.py build_ext --inplace
 	coverage run -m unittest discover -s diffq/tests || exit 1
 	coverage report --include 'diffq/*'
 

@@ -10,6 +10,7 @@ from functools import partial
 import torch
 from torch import nn
 
+import diffq
 from diffq.tests.base import QuantizeTest
 from diffq.diffq import DiffQuantizer
 
@@ -179,6 +180,28 @@ class TestDiffQ(QuantizeTest):
         ya, yb = two_detect(x)
         self.assertAlmostEqual(torch.norm(ya - yb).item(), 0)
         (ya + yb).sum().backward()
+
+    def test_restore(self):
+        model = nn.Linear(53, 8, bias=False)
+        quant = DiffQuantizer(model, min_size=0, group_size=8)
+        for n, p in model.named_parameters():
+            if n.endswith(quant.suffix):
+                p.data.uniform_(-2, 2)
+        state = quant.get_quantized_state()
+
+        model2 = nn.Linear(53, 8, bias=False)
+        diffq.restore_quantized_state(model2, state)
+
+        with quant.enter_quantize():
+            for p1, p2 in zip(model.parameters(), model2.parameters()):
+                self.assertAlmostEqual(torch.norm(p1 - p2).item(), 0)
+
+    def test_repr(self):
+        model = nn.Linear(53, 8, bias=False)
+        quant = DiffQuantizer(model, min_size=0, group_size=8)
+        r = repr(quant)
+        self.assertTrue("min_size=0" in r)
+        self.assertTrue("group_size=8" in r)
 
 
 class _TestBound(nn.Module):

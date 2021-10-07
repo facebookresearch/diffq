@@ -10,8 +10,9 @@ Classic uniform quantization over n bits.
 from typing import Tuple
 import torch
 
+from . import bitpack
 from .base import BaseQuantizer
-from .utils import simple_repr
+from .utils import capture_init, simple_repr
 
 
 def uniform_quantize(p: torch.Tensor, bits: torch.Tensor = torch.tensor(8.)):
@@ -51,6 +52,7 @@ def uniform_unquantize(levels: torch.Tensor, scales: Tuple[float, float],
 
 
 class UniformQuantizer(BaseQuantizer):
+    @capture_init
     def __init__(self, model: torch.nn.Module, bits: float = 8., min_size: float = 0.01,
                  float16: bool = False, qat: bool = False, exclude=[], detect_bound=True):
         """
@@ -100,6 +102,18 @@ class UniformQuantizer(BaseQuantizer):
     def _unquantize_param(self, qparam, quantized):
         levels, scales = quantized
         return uniform_unquantize(levels, scales, torch.tensor(self.bits))
+
+    def _bit_pack_param(self, qparam, quantized):
+        levels, scales = quantized
+        packed = bitpack.pack(levels, self.bits)
+        return (packed, scales)
+
+    def _bit_unpack_param(self, qparam, packed):
+        """Unpack bitpacked representation. Should be overriden
+        """
+        packed_levels, scales = packed
+        levels = bitpack.unpack(packed_levels, qparam.param)
+        return (levels, scales)
 
     def model_size(self):
         """

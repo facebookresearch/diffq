@@ -12,6 +12,7 @@ from functools import partial
 import io
 import math
 from multiprocessing import cpu_count
+import pickle
 import typing as tp
 import zlib
 
@@ -113,7 +114,7 @@ class BaseQuantizer:
             return False
         self._saved = [qp.param.data.to('cpu', copy=True)
                        for qp in self._qparams if qp.other is None]
-        self.restore_quantized_state(self.get_quantized_state())
+        self.restore_quantized_state(self.get_quantized_state(packed=False))
         self._quantized = True
         self._fix_rnns()
         return True
@@ -167,21 +168,16 @@ class BaseQuantizer:
             if flatten:
                 rnn.flatten_parameters()
 
-    def get_quantized_state(self):
+    def _bit_pack_param(self, qparam: _QuantizedParam, quantized: tp.Any) -> tp.Any:
+        """Further bitpack the quantized representation.
+        This is used to return the quantized state. Should be overriden.
         """
-        Actual implementation for `get_quantized_state`.
-        """
-        float16_params = []
-        for p in self._float16:
-            q = p.data.half()
-            float16_params.append(q)
+        return quantized
 
-        return {
-            "quantized": [self._quantize_param(qparam) for qparam in self._qparams
-                          if qparam.other is None],
-            "float16": float16_params,
-            "others": [p.data.clone() for p in self._others],
-        }
+    def _bit_unpack_param(self, qparam: _QuantizedParam, packed: tp.Any) -> tp.Any:
+        """Unpack bitpacked representation. Should be overriden
+        """
+        return packed
 
     def _quantize_param(self, qparam: _QuantizedParam) -> tp.Any:
         """
@@ -195,6 +191,39 @@ class BaseQuantizer:
         """
         raise NotImplementedError()
 
+    def get_quantized_state(self, packed=True):
+        """
+        Actual implementation for `get_quantized_state`.
+        """
+        float16_params = []
+        for p in self._float16:
+            q = p.data.half()
+            float16_params.append(q)
+
+        all_quantized = []
+        for qparam in self._qparams:
+            if qparam.other is not None:
+                continue
+            quantized = self._quantize_param(qparam)
+            if packed:
+                quantized = self._bit_pack_param(qparam, quantized)
+            all_quantized.append(quantized)
+
+        state = {
+            "quantized": all_quantized,
+            "float16": float16_params,
+            "others": [p.data.clone() for p in self._others],
+        }
+
+        kwargs = dict(self._init_kwargs)
+        kwargs.pop("model")
+        state["meta"] = {
+            "init_kwargs": kwargs,
+            "klass": self.__class__,
+            "packed": packed,
+        }
+        return state
+
     def restore_quantized_state(self, state) -> None:
         """
         Restore the state of the model from the quantized state.
@@ -205,13 +234,19 @@ class BaseQuantizer:
         for p, q in zip(self._others, state["others"]):
             p.data[:] = q
 
+        meta = state.get("meta", {})
+        packed = meta.get("packed", False)
+
         remaining = list(state["quantized"])
         for qparam in self._qparams:
             if qparam.other is not None:
                 # Only unquantize first appearance of nn.Parameter.
                 continue
             quantized = remaining.pop(0)
+            if packed:
+                quantized = self._bit_unpack_param(qparam, quantized)
             qparam.param.data[:] = self._unquantize_param(qparam, quantized)
+        assert not remaining
         self._fix_rnns()
 
     def detach(self) -> None:
@@ -239,6 +274,14 @@ class BaseQuantizer:
         """
         return self.model_size().item()
 
+    def packed_model_size(self) -> float:
+        """Return the packed model size, when stored with pickle.
+        This should be mostly equivalent to `true_model_size` up to some
+        slight overhead for storing metadata.
+        """
+        state = self.get_quantized_state(packed=True)
+        return len(pickle.dumps(state)) / 2 ** 20
+
     def compressed_model_size(self, compress_level=-1, num_workers=8) -> float:
         """
         Return the compressed quantized model size, in MB.
@@ -250,9 +293,16 @@ class BaseQuantizer:
                 many chunks processed in parallels.
         """
         out = io.BytesIO()
-        torch.save(self.get_quantized_state(), out)
+        torch.save(self.get_quantized_state(packed=False), out)
         ms = _parallel_compress_len(out.getvalue(), compress_level, num_workers)
         return ms / 2 ** 20
+
+
+def restore_quantized_state(model: torch.nn.Module, state: dict):
+    assert "meta" in state
+    quantizer = state["meta"]["klass"](model, **state["meta"]["init_kwargs"])
+    quantizer.restore_quantized_state(state)
+    quantizer.detach()
 
 
 def _compress_len(data, compress_level):
@@ -263,5 +313,7 @@ def _parallel_compress_len(data, compress_level, num_workers):
     num_workers = min(cpu_count(), num_workers)
     chunk_size = int(math.ceil(len(data) / num_workers))
     chunks = [data[offset:offset + chunk_size] for offset in range(0, len(data), chunk_size)]
-    with futures.ProcessPoolExecutor(num_workers) as pool:
+    with futures.ThreadPoolExecutor(num_workers) as pool:
+        # thread pool is okay here, zlib calls an external C lib and GIL is released
+        # before the call.
         return sum(pool.map(partial(_compress_len, compress_level=compress_level), chunks))
