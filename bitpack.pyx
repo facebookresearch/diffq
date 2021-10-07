@@ -58,7 +58,7 @@ def pack(x: torch.Tensor, nbits: int = 0, block_size: int = 32):
     if x.numel() > 0:
         assert x.max().item() < 2 ** 15
         assert x.min().item() >= 0
-    x = x.short().view(-1).cpu()
+    x = x.short().reshape(-1).cpu()
 
     ideal_size = int(math.ceil(len(x) / (64 * block_size)) * (64 * block_size))
     if ideal_size != len(x):
