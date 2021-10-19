@@ -5,7 +5,6 @@
 # LICENSE file in the root directory of this source tree.
 
 from copy import deepcopy
-import random
 import unittest
 
 import torch
