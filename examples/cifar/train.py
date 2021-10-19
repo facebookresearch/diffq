@@ -23,7 +23,7 @@ def run(args):
     from src.wide_resnet import Wide_ResNet
 
     import torch
-    from diffq import DiffQuantizer, UniformQuantizer
+    from diffq import DiffQuantizer, UniformQuantizer, LSQ
 
     logger.info("Running on host %s", socket.gethostname())
     distrib.init(args, args.rendezvous_file)
@@ -84,19 +84,29 @@ def run(args):
         os._exit(1)
 
     if args.quant.penalty:
-        quantizer = DiffQuantizer(model, group_size=args.quant.group_size)
+        quantizer = DiffQuantizer(
+            model, group_size=args.quant.group_size,
+            min_size=args.quant.min_size,
+            min_bits=args.quant.min_bits,
+            init_bits=args.quant.init_bits,
+            max_bits=args.quant.max_bits,
+            exclude=args.quant.exclude)
         if args.quant.adam:
             quantizer.opt = torch.optim.Adam([{"params": []}])
             quantizer.setup_optimizer(quantizer.opt, lr=args.quant.lr)
         else:
             quantizer.setup_optimizer(optimizer, lr=args.quant.lr)
+    elif args.quant.lsq:
+        quantizer = LSQ(
+            model, bits=args.quant.bits, min_size=args.quant.min_size,
+            exclude=args.quant.exclude)
+        quantizer.setup_optimizer(optimizer)
     elif args.quant.bits:
         quantizer = UniformQuantizer(
             model, min_size=args.quant.min_size,
-            bits=args.quant.bits, qat=args.quant.qat)
+            bits=args.quant.bits, qat=args.quant.qat, exclude=args.quant.exclude)
     else:
         quantizer = None
-
     criterion = torch.nn.CrossEntropyLoss()
 
     # Construct Solver

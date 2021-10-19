@@ -7,8 +7,7 @@
 # Inspired from https://github.com/kennethreitz/setup.py
 
 from pathlib import Path
-
-from setuptools import setup
+from setuptools import setup, Extension
 
 NAME = 'diffq'
 DESCRIPTION = ('Differentiable quantization framework for PyTorch.')
@@ -16,7 +15,7 @@ URL = 'https://github.com/facebookresearch/diffq'
 EMAIL = 'defossez@fb.com'
 AUTHOR = 'Alexandre Défossez, Yossi Adi, Gabriel Synnaeve'
 REQUIRES_PYTHON = '>=3.6.0'
-VERSION = "0.1.1"
+VERSION = "0.2.0"
 
 HERE = Path(__file__).parent
 
@@ -37,7 +36,10 @@ setup(
     python_requires=REQUIRES_PYTHON,
     url=URL,
     packages=['diffq'],
-    install_requires=['torch'],
+    install_requires=['Cython', 'numpy', 'torch'],
+    ext_modules=[Extension(
+        "diffq.bitpack",
+        sources=["bitpack.pyx"])],
     extras_require={'dev': ['coverage', 'flake8', 'pdoc3']},
     include_package_data=True,
     license='Creative Commons Attribution-NonCommercial 4.0 International',

@@ -1,13 +1,13 @@
 diff --git a/ensure.sh b/ensure.sh
 new file mode 100755
-index 00000000..d188f80f
+index 00000000..53b5c6ea
 --- /dev/null
 +++ b/ensure.sh
 @@ -0,0 +1,22 @@
 +#!/bin/zsh
 +
 +cd "$(dirname "$0")"
-+run="./run.py -G24"
++run="./run.py --dev -G24"
 +extra=
 +if [[ $1 == r ]]; then
 +    extra=-r
@@ -21,11 +21,11 @@ index 00000000..d188f80f
 +    fi
 +}
 +
-+ensure
 +ensure -b4
 +ensure -b8
-+ensure -p 1  -g 16
++ensure -p 5 -g 16
 +ensure -p 10 -g 16
++ensure -b4 --lsq --pretrained --lr 0.01
 diff --git a/eval.sh b/eval.sh
 new file mode 100755
 index 00000000..276b722a
@@ -66,18 +66,22 @@ index 00000000..276b722a
 +    --softmax-batch 1024 \
 +    --gen-subset test $act_flags
 diff --git a/fairseq/checkpoint_utils.py b/fairseq/checkpoint_utils.py
-index 79c81142..7e21a9ea 100644
+index 79c81142..0590845f 100644
 --- a/fairseq/checkpoint_utils.py
 +++ b/fairseq/checkpoint_utils.py
-@@ -351,6 +351,17 @@ def load_model_ensemble_and_task(
+@@ -351,6 +351,21 @@ def load_model_ensemble_and_task(
  
              # build model for ensemble
              model = task.build_model(cfg.model)
-+            from diffq import DiffQuantizer, UniformQuantizer
++            from diffq import DiffQuantizer, UniformQuantizer, LSQ
 +            quant = cfg.quantization
 +            kw = {}
 +            kw['min_size'] = quant.min_size
-+            if quant.bits:
++            if getattr(quant, 'lsq', False):
++                quantizer = LSQ(model, bits=quant.bits, **kw)
++                quantizer.penalty = 0
++                quantizer.no_optimizer()
++            elif quant.bits:
 +                quantizer = UniformQuantizer(model, bits=quant.bits, qat=True, **kw)
 +                quantizer.penalty = 0
 +            elif quant.penalty:
@@ -100,13 +104,14 @@ index e20d914b..186371f9 100644
      - bpe: null
      - tokenizer: null
 diff --git a/fairseq/dataclass/configs.py b/fairseq/dataclass/configs.py
-index 2968d2ab..a78480ab 100644
+index 2968d2ab..dbaf463d 100644
 --- a/fairseq/dataclass/configs.py
 +++ b/fairseq/dataclass/configs.py
-@@ -499,6 +499,40 @@ class OptimizationConfig(FairseqDataclass):
+@@ -498,6 +498,43 @@ class OptimizationConfig(FairseqDataclass):
+     )
  
  
- @dataclass
++@dataclass
 +class QuantizationConfig(FairseqDataclass):
 +    min_size: float = field(
 +        default=0.01, metadata={"help": "Minimum size to quantize parameter"}
@@ -114,11 +119,14 @@ index 2968d2ab..a78480ab 100644
 +    bits: int = field(
 +        default=0, metadata={"help": "Number of bits (for QAT)."}
 +    )
++    lsq: bool = field(
++        default=False, metadata={"help": "Use LSQ."}
++    )
 +    penalty: float = field(
 +        default=0, metadata={"help": "Model size penalty (for DiffQ)"}
 +    )
 +    bits_lr: float = field(
-+        default=0.01, metadata={"help": "LR for bits"}
++        default=0.001, metadata={"help": "LR for bits"}
 +    )
 +    min_bits: int = field(
 +        default=2, metadata={"help": "Minimum number of bits"}
@@ -140,11 +148,10 @@ index 2968d2ab..a78480ab 100644
 +    act_debug: bool = field(default=False, metadata={"help": "Debug pipeline, no quantization"})
 +
 +
-+@dataclass
+ @dataclass
  class CheckpointConfig(FairseqDataclass):
      save_dir: str = field(
-         default="checkpoints", metadata={"help": "path to save checkpoints"}
-@@ -914,6 +948,7 @@ class FairseqConfig(FairseqDataclass):
+@@ -914,6 +951,7 @@ class FairseqConfig(FairseqDataclass):
      distributed_training: DistributedTrainingConfig = DistributedTrainingConfig()
      dataset: DatasetConfig = DatasetConfig()
      optimization: OptimizationConfig = OptimizationConfig()
@@ -453,9 +460,18 @@ index eb5e6a76..06b48223 100644
  
      def build_dataset_for_inference(
 diff --git a/fairseq/trainer.py b/fairseq/trainer.py
-index a6c10136..7a9e607c 100644
+index a6c10136..bc6dc07e 100644
 --- a/fairseq/trainer.py
 +++ b/fairseq/trainer.py
+@@ -337,7 +337,7 @@ class Trainer(object):
+             # load model parameters
+             try:
+                 self.get_model().load_state_dict(
+-                    state["model"], strict=True, model_cfg=self.cfg.model
++                    state["model"], strict=False, model_cfg=self.cfg.model
+                 )
+                 if utils.has_parameters(self.get_criterion()):
+                     self.get_criterion().load_state_dict(
 @@ -353,7 +353,7 @@ class Trainer(object):
  
          if last_optim_state is not None and not reset_optimizer:
@@ -518,7 +534,7 @@ index a6c10136..7a9e607c 100644
          return logging_output
  
 diff --git a/fairseq_cli/eval_lm.py b/fairseq_cli/eval_lm.py
-index 4501cac6..063e35e7 100644
+index 4501cac6..db641ed5 100644
 --- a/fairseq_cli/eval_lm.py
 +++ b/fairseq_cli/eval_lm.py
 @@ -45,6 +45,7 @@ def eval_lm(
@@ -580,24 +596,24 @@ index 4501cac6..063e35e7 100644
 +    if cfg.quantization.act and not cfg.quantization.act_debug:
 +        assert len(models) == 1
 +        model = models[0]
-+        from torch.quantization import qconfig
++        from torch.quantization import qconfig, observer
 +        if cfg.quantization.act_method == "minmax":
-+            klass = qconfig.MovingAverageMinMaxObserver
++            klass = observer.MovingAverageMinMaxObserver
 +            activation = klass
 +        elif cfg.quantization.act_method == "minmax_pc":
-+            klass = qconfig.PerChannelMinMaxObserver
++            klass = observer.PerChannelMinMaxObserver
 +            activation = klass.with_args(ch_axis=2)
 +        else:
-+            klass = qconfig.HistogramObserver
++            klass = observer.HistogramObserver
 +            activation = klass
 +        if cfg.quantization.act_fake:
 +            model.qconfig = qconfig.QConfig(
 +                activation=activation,
-+                weight=qconfig.FakeQuantize.with_args(observer=qconfig.MinMaxObserver))
++                weight=qconfig.FakeQuantize.with_args(observer=observer.MinMaxObserver))
 +        else:
 +            model.qconfig = qconfig.QConfig(
 +                activation=activation,
-+                weight=qconfig.MinMaxObserver)
++                weight=observer.MinMaxObserver)
 +        model.decoder.embed_tokens.qconfig = None
 +        model.decoder.adaptive_softmax.qconfig = None
 +        if cfg.quantization.act_fake:
@@ -717,7 +733,7 @@ index 4501cac6..063e35e7 100644
  
      logger.info(
 diff --git a/fairseq_cli/train.py b/fairseq_cli/train.py
-index 11562226..9983f588 100644
+index 11562226..795391bb 100644
 --- a/fairseq_cli/train.py
 +++ b/fairseq_cli/train.py
 @@ -10,6 +10,7 @@ Train a new model on one or across multiple GPUs.
@@ -749,14 +765,20 @@ index 11562226..9983f588 100644
      assert (
          cfg.dataset.max_tokens is not None or cfg.dataset.batch_size is not None
      ), "Must specify batch size either with --max-tokens or --batch-size"
-@@ -93,9 +108,22 @@ def main(cfg: DictConfig) -> None:
+@@ -93,9 +108,28 @@ def main(cfg: DictConfig) -> None:
      else:
          quantizer = None
  
-+    from diffq import DiffQuantizer, UniformQuantizer
++    from diffq import DiffQuantizer, UniformQuantizer, LSQ
 +    kw = {}
 +    kw['min_size'] = cfg.quantization.min_size
-+    if cfg.quantization.bits:
++    second_optim = None
++    if cfg.quantization.lsq:
++        quantizer = LSQ(model, bits=cfg.quantization.bits, **kw)
++        quantizer.penalty = 0
++        second_optim = torch.optim.Adam([{'params': []}], lr=cfg.quantization.bits_lr)
++        quantizer.setup_optimizer(second_optim)
++    elif cfg.quantization.bits:
 +        quantizer = UniformQuantizer(model, bits=cfg.quantization.bits, qat=True, **kw)
 +        quantizer.penalty = 0
 +    elif cfg.quantization.penalty:
@@ -773,17 +795,17 @@ index 11562226..9983f588 100644
      else:
          trainer = MegatronTrainer(cfg, task, model, criterion)
  
-@@ -110,6 +138,9 @@ def main(cfg: DictConfig) -> None:
+@@ -110,6 +144,9 @@ def main(cfg: DictConfig) -> None:
              cfg.dataset.batch_size,
          )
      )
-+    if cfg.quantization.penalty:
++    if second_optim is not None:
 +        quantizer.clear_optimizer(trainer.optimizer.optimizer)
 +        trainer.optimizer.second_optim = second_optim
  
      # Load the latest checkpoint if one is available and restore the
      # corresponding train iterator
-@@ -124,6 +155,7 @@ def main(cfg: DictConfig) -> None:
+@@ -124,6 +161,7 @@ def main(cfg: DictConfig) -> None:
      lr = trainer.get_lr()
      train_meter = meters.StopwatchMeter()
      train_meter.start()
@@ -791,7 +813,7 @@ index 11562226..9983f588 100644
      while epoch_itr.next_epoch_idx <= max_epoch:
          if lr <= cfg.optimization.stop_min_lr:
              logger.info(
-@@ -134,7 +166,11 @@ def main(cfg: DictConfig) -> None:
+@@ -134,7 +172,11 @@ def main(cfg: DictConfig) -> None:
              break
  
          # train for one epoch
@@ -804,7 +826,7 @@ index 11562226..9983f588 100644
          if should_stop:
              break
  
-@@ -182,7 +218,7 @@ def should_stop_early(cfg: DictConfig, valid_loss: float) -> bool:
+@@ -182,7 +224,7 @@ def should_stop_early(cfg: DictConfig, valid_loss: float) -> bool:
  
  @metrics.aggregate("train")
  def train(
@@ -813,7 +835,7 @@ index 11562226..9983f588 100644
  ) -> Tuple[List[Optional[float]], bool]:
      """Train the model for one epoch and return validation losses."""
      # Initialize data iterator
-@@ -234,7 +270,7 @@ def train(
+@@ -234,7 +276,7 @@ def train(
          with metrics.aggregate("train_inner"), torch.autograd.profiler.record_function(
              "train_step-%d" % i
          ):
@@ -822,12 +844,38 @@ index 11562226..9983f588 100644
  
          if log_output is not None:  # not OOM, overflow, ...
              # log mid-epoch stats
+@@ -249,7 +291,7 @@ def train(
+ 
+         end_of_epoch = not itr.has_next()
+         valid_losses, should_stop = validate_and_save(
+-            cfg, trainer, task, epoch_itr, valid_subsets, end_of_epoch
++            cfg, trainer, task, epoch_itr, valid_subsets, end_of_epoch, quantizer=quantizer,
+         )
+ 
+         if should_stop:
+@@ -285,6 +327,7 @@ def validate_and_save(
+     epoch_itr,
+     valid_subsets: List[str],
+     end_of_epoch: bool,
++    quantizer=None,
+ ) -> Tuple[List[Optional[float]], bool]:
+     num_updates = trainer.get_num_updates()
+     max_update = cfg.optimization.max_update or math.inf
+@@ -341,6 +384,8 @@ def validate_and_save(
+ 
+     # Save checkpoint
+     if do_save or should_stop:
++        if quantizer is not None:
++            quantizer.unquantize()
+         checkpoint_utils.save_checkpoint(
+             cfg.checkpoint, trainer, epoch_itr, valid_losses[0]
+         )
 diff --git a/run.py b/run.py
 new file mode 100755
-index 00000000..2a13974c
+index 00000000..cd3478f1
 --- /dev/null
 +++ b/run.py
-@@ -0,0 +1,181 @@
+@@ -0,0 +1,188 @@
 +#!/usr/bin/env python3
 +
 +import argparse
@@ -841,6 +889,8 @@ index 00000000..2a13974c
 +
 +import submitit
 +
++
++PRETRAINED_PATH = str(Path('adaptive_lm_wiki103.v2/model.pt').resolve())
 +
 +if 'WIKITEXT_PATH' in os.environ:
 +    wikitext_path = os.environ['WIKITEXT_PATH']
@@ -902,6 +952,7 @@ index 00000000..2a13974c
 +def main():
 +    parser = argparse.ArgumentParser('run.py')
 +    parser.add_argument('-d', '--dist', action='store_true')
++    parser.add_argument('--lsq', action='store_true', default=None)
 +    parser.add_argument('-p', '--penalty', type=float)
 +    parser.add_argument('-g', '--group_size', type=int)
 +    parser.add_argument('-b', '--bits', type=int)
@@ -910,6 +961,8 @@ index 00000000..2a13974c
 +    parser.add_argument('--min-size', type=float)
 +    parser.add_argument('-L', '--bits_lr', type=float)
 +    parser.add_argument('--decoder-layerdrop', type=float)
++    parser.add_argument('--lr', type=float)
++    parser.add_argument('--pretrained', action='store_true', default=None)
 +
 +    parser.add_argument('--update-freq', type=int)
 +    parser.add_argument('-R', '--restart', action='store_true')
@@ -918,21 +971,23 @@ index 00000000..2a13974c
 +    parser.add_argument('-C', '--cancel', action='store_true')
 +    parser.add_argument('--label')
 +    parser.add_argument('--dev', action='store_const',
-+                        const='dev', dest='partition', default='learnfair')
-+    parser.add_argument('--prio', action='store_const',
-+                        const='priority', dest='partition', default='learnfair')
++                        const='devlab', dest='partition', default='learnlab')
 +
 +    args = parser.parse_args()
 +
 +    cmd = list(BASE)
 +
 +    name = "exp"
-+    for key in ["penalty", "bits", "group_size", "bits_lr",
-+                "min_size", "min_bits", "update_freq", "decoder_layerdrop"]:
++    for key in ["lsq", "penalty", "bits", "group_size", "bits_lr",
++                "min_size", "min_bits", "update_freq", "decoder_layerdrop", "pretrained", "lr"]:
 +        val = getattr(args, key)
 +        if val is not None:
 +            key = key.replace('_', '-')
-+            if val is True:
++            if key == 'pretrained':
++                assert val is True
++                cmd += ['--finetune-from-model', PRETRAINED_PATH]
++                name += "_pretrained"
++            elif val is True:
 +                name += f"_{key}"
 +                cmd += [f"--{key}"]
 +            else:
@@ -998,8 +1053,8 @@ index 00000000..2a13974c
 +            'setup': ['export MKL_THREADING_LAYER=GNU',
 +                      'module load cudnn/v8.0.3.33-cuda.11.0 NCCL/2.8.3-1-cuda.11.0 cuda/11.0'],
 +        }
-+        if args.partition == 'priority':
-+            slurm['comment'] = 'for code release'
++        if 'priority' in args.partition:
++            slurm['comment'] = 'aaai deadline 1st october'
 +        executor.update_parameters(job_name=name, **slurm)
 +        job = executor.submit(target)
 +        pickle.dump(job, open(job_file, 'wb'))

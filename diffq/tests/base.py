@@ -5,23 +5,29 @@
 # LICENSE file in the root directory of this source tree.
 
 from copy import deepcopy
-import random
 import unittest
 
 import torch
 from torch import nn
 
 
-class QuantizeTest(unittest.TestCase):
+def _cached_setup():
+    model_small = nn.Sequential(nn.Conv1d(4, 4, 8, bias=False),
+                                nn.ReLU(), nn.Conv1d(4, 4, 1, bias=False))
+    model_big = nn.LSTM(256, 256, 2)
+
     def setUp(self):
-        torch.manual_seed(1234)
-        random.seed(1234)
-        self.model_small = nn.Sequential(nn.Conv1d(4, 4, 8, bias=False),
-                                         nn.ReLU(), nn.Conv1d(4, 4, 1, bias=False))
-        self.model_big = nn.LSTM(512, 512, 2)
+        self.model_small = deepcopy(model_small)
+        self.model_big = deepcopy(model_big)
         self.model_small_big = nn.ModuleList(
             [deepcopy(self.model_small), deepcopy(self.model_big)])
         self.models = [self.model_small, self.model_big, self.model_small_big]
+
+    return setUp
+
+
+class QuantizeTest(unittest.TestCase):
+    setUp = _cached_setup()
 
     def _test_save_restore_state(self, factory):
         for model in self.models:
@@ -50,16 +56,19 @@ class QuantizeTest(unittest.TestCase):
         for model in [self.model_big, self.model_small_big]:
             model = deepcopy(model)
             quantizer = factory(model)
-            compressed = quantizer.compressed_model_size()
+            compressed = quantizer.compressed_model_size(2, 1)
             true = quantizer.true_model_size()
+            packed = quantizer.packed_model_size()
             estimate = quantizer.model_size()
             self.assertLessEqual(compressed, 1.5 * true, msg=repr(factory))
             self.assertLessEqual(compressed, 1.5 * estimate, msg=repr(factory))
             self.assertLessEqual(estimate, 1.5 * true, msg=repr(factory))
             self.assertLessEqual(true, 1.5 * estimate, msg=repr(factory))
+            self.assertLessEqual(true, 1.1 * packed, msg=repr(factory))
+            self.assertLessEqual(packed, 1.1 * true, msg=repr(factory))
 
             for num_workers in [1, 2]:
-                other = quantizer.compressed_model_size(num_workers=num_workers)
+                other = quantizer.compressed_model_size(2, num_workers=num_workers)
                 self.assertLessEqual(compressed, 1.1 * other, msg=repr(factory))
                 self.assertLessEqual(other, 1.1 * compressed, msg=repr(factory))
 

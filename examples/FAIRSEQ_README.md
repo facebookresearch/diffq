@@ -1,15 +1,14 @@
 # DiffQ for DeiT: Data-efficient Image Transformers
 
-This code has been adapted from https://github.com/facebookresearch/fairseq.
-
 ## Requirements
 
-You must first install `diffq`, and apply the patch to the mainstream DeiT branch. To do so, run **from the root of the repository**:
+You must first install `diffq`, and apply the patch to the mainstream DeiT branch. To do so, run **from the root of the `code` folder**:
 ```bash
-pip install .
-make examples
+pip install .  # install diffq package
+make examples  # clone base repository and apply patch.
 cd examples/fairseq
 pip install .
+pip install git+https://github.com/facebookincubator/submitit@main#egg=submitit  # install submitit
 ```
 
 ## Training with DiffQ:
@@ -47,6 +46,20 @@ the experiment folder:
 cat train.*.log.0| grep "'valid' subset"
 ```
 
+## Training with LSQ
+
+You can train with LSQ but you will first need to download the pretrained model.
+You must run the following from the `DiffQ_Core_release/examples/fairseq` folder.
+
+```
+wget https://dl.fbaipublicfiles.com/fairseq/models/lm/adaptive_lm_wiki103.v2.tar.bz2
+tar xvf adaptive_lm_wiki103.v2.tar.bz2
+```
+Then, simply run
+```
+./run.py -b 4 --lsq --lr 0.01 --pretrained
+```
+
 ## Evaluating models
 
 In order to evaluate models on the test set, you can use the `examples/fairseq/eval.sh` script:
@@ -56,4 +69,11 @@ In order to evaluate models on the test set, you can use the `examples/fairseq/e
 ./eval.sh EXPERIMENT_NAME minmax_pc # with min max per channel activation quantization.
 ./eval.sh EXPERIMENT_NAME histogram # with histogram activation quantization.
 ```
+
+## License
+
+See the file ../LICENSE for more details.
+
+This codebase was adapted from the original [Fairseq repository](https://github.com/pytorch/fairseq),
+released under the MIT license.
 

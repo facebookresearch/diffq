@@ -60,9 +60,14 @@ quant:
   bits: 0  # number of bits used for uniform quantization
   penalty: 0  # model weight penalty for DiffQ
   group_size: 8  # group size for DiffQ
+  min_bits: 2  # minimal number of bits for DiffQ
+  init_bits: 8  # initial number of bits for DiffQ
+  max_bits: 15  # max number of bits for DiffQ
+  exclude: []  # exclude patterns, e.g. bias
   qat: False  # quantization aware training to be used with uniform qunatization
   lr: 1e-3  # learning rate for the bits parameters
   adam: True  # use a separate optimizer for the bits parameters
+  lsq: False  # use LSQ
 
 
 rendezvous_file: ./rendezvous

@@ -13,9 +13,10 @@ import typing as tp
 
 import torch
 
+from . import bitpack
 from .base import BaseQuantizer
 from .uniform import uniform_quantize, uniform_unquantize
-from .utils import simple_repr
+from .utils import capture_init, simple_repr
 
 
 class DiffQuantizer(BaseQuantizer):
@@ -23,6 +24,7 @@ class DiffQuantizer(BaseQuantizer):
     class _QuantizedParam(BaseQuantizer._QuantizedParam):
         logit: torch.nn.Parameter
 
+    @capture_init
     def __init__(self, model: torch.nn.Module, min_size: float = 0.01, float16: bool = False,
                  group_size: int = 1, min_bits: float = 2, max_bits: float = 15,
                  param="bits", noise="gaussian",
@@ -267,15 +269,39 @@ class DiffQuantizer(BaseQuantizer):
         bits = self.extra_bits + self._get_bits(qparam.logit)
         bits = bits.round().clamp(1, 15)[:, None].byte()
         if self.group_size == 0:
-            p = qparam.param.data.view(-1)
+            p = qparam.param.data.view(1, -1)
         else:
             p = qparam.param.data.view(-1, self.group_size)
         levels, scales = uniform_quantize(p, bits)
-        return levels, scales, bits
+        return levels, scales, bits[:, 0]
 
     def _unquantize_param(self, qparam: _QuantizedParam, quantized: tp.Any) -> torch.Tensor:
         levels, param_scale, bits = quantized
+        bits = bits[:, None]
         return uniform_unquantize(levels, param_scale, bits).view_as(qparam.param.data)
+
+    def _bit_pack_param(self, qparam, quantized):
+        levels, scales, bits = quantized
+        all_packed = []
+        for bit in range(1, 15):
+            sub_levels = levels[bits == bit]
+            packed = bitpack.pack(sub_levels, bit)
+            all_packed.append(packed)
+        packed_bits = bitpack.pack(bits - self.min_bits)
+        return (all_packed, scales, packed_bits)
+
+    def _bit_unpack_param(self, qparam, packed):
+        """Unpack bitpacked representation. Should be overriden.
+        """
+        packed_all_levels, scales, packed_bits = packed
+        bits = bitpack.unpack(packed_bits, qparam.logit) + self.min_bits
+        levels = torch.empty(qparam.logit.numel(), self.group_size,
+                             dtype=torch.short, device=qparam.param.device)
+        for idx, packed_levels in enumerate(packed_all_levels):
+            bit = idx + 1
+            sub_levels = levels[bits == bit]
+            levels[bits == bit] = bitpack.unpack(packed_levels, sub_levels)
+        return (levels, scales, bits)
 
     def detach(self):
         super().detach()

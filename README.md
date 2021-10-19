@@ -26,52 +26,95 @@ You can also install directly from PyPI with `pip install diffq`.
 ```python
 import torch
 from torch.nn import functional as F
+import diffq
 from diffq import DiffQuantizer
 
-my_model = MyModel()
-my_optim = ...  # The optimizer must be created before the quantizer
-quantizer = DiffQuantizer(my_model)
-quantizer.setup_optimizer(my_optim)
-
-# Or, if you want to use a specific optimizer for DiffQ
-quantizer.opt = torch.optim.Adam([{"params": []}])
-quantizer.setup_optimizer(quantizer.opt)
+model = MyModel()
+optim = ...  # The optimizer must be created before the quantizer
+quantizer = DiffQuantizer(model)
+quantizer.setup_optimizer(optim)
 
 # Distributed data parallel must be created after DiffQuantizer!
 dmodel = torch.distributed.DistributedDataParallel(...)
 
-# Then go on training as usual, just don't forget to call my_model.train() and my_model.eval().
 penalty = 1e-3
+model.train()  # call model.eval() on eval to automatically use true quantized weights.
 for batch in loader:
     ...
-    my_optim.zero_grad()
-    # If you used a separate optimizer for DiffQ, call
-    # quantizer.opt.zero_grad()
+    optim.zero_grad()
 
     # The `penalty` parameter here will control the tradeoff between model size and model accuracy.
     loss = F.mse_loss(x, y) + penalty * quantizer.model_size()
-    my_optim.step()
-    # If you used a separate optimizer for DiffQ, call
-    # quantizer.opt.step()
+    optim.step()
 
-# To get the true "naive" model size call
-quantizer.true_model_size()
-
-# To get the gzipped model size without actually dumping to disk
-quantizer.compressed_model_size()
+# To get the true model size with when doing proper bit packing.
+print(f"Model is {quantizer.true_model_size():.1f} MB")
 
 # When you want to dump your final model:
 torch.save(quantizer.get_quantized_state(), "some_file.th")
-# DiffQ will not optimally code integers. In order to actually get most
-# of the gain in terms of size, you should call call `gzip some_file.th`.
 
 # You can later load back the model with
-quantizer.restore_quantized_state(torch.load("some_file.th"))
+model = MyModel()
+diffq.restore_quantized_state(model, torch.load("some_file.th"))
 ```
 
 ## Documentation
 
-See the [API documentation][api].
+See the [API documentation][api] for detailed documentation.
+We cover hereafter a few aspects.
+
+### Quantizer object
+
+A Quantizer is attached to a model at its creation.
+All Quantizer objects provide the same basic capabilities:
+- automatically switches to quantized weights on the forward if the model is in eval mode.
+- quantizer-specific code on training forward (e.g. STE for UniformQuantizer with QAT,
+ noise injection for DiffQ).
+- provide access to the quantized model size and state.
+
+### Quantized size and state
+
+The method `quantizer.model_size()` provide a differentiable model size (for DiffQ),
+  while `quantizer.true_model_size()` provide the true, optimally bit-packed, model size
+  (non differentiable).
+  With `quantizer.compressed_model_size()` you can get the model size using `gzip`.
+  This can actually be larger than the true model size, and reveals interesting
+  information on the entropy usage of a specific quantization method.
+
+The bit-packed quantized state is obtained with `quantizer.get_quantized_state()` ,
+and restored with `quantizer.restore_quantized_state()`.
+Bit packing is optimized for speed and can suffer from some overhead
+(in practice no more than 120B for Uniform and LSQ, and not more than 1kB for DiffQ).
+
+If you do not have access to the original quantizer, for instance at inference time,
+you can load the state with `diffq.restore_quantized_state(model, quantized_state)`.
+
+### Quantizer and optimization
+
+Some quantizer will add extra optimizable parameters (DiffQuantizer and LSQ).
+Those parameters can require different optimizers or hyper-parameters than
+the main model weights.
+Typically, DiffQ bits parameters are always optimized with Adam.
+For that reason, you should always create the main optimizer **before**
+the quantizer. You can then setup the quantizer with this optimizer or another:
+
+```python
+model = MyModel(...)
+opt = torch.optim.Adam(model.parameters())
+quantizer = diffq.DiffQuantizer(model)
+quantizer.setup_optimizer(opt, **optim_overrides)
+```
+
+This offers the freedom to use a separate hyper-params. For instance, `DiffQuantizer`
+will always deactivate weight_decay for the bits parameters.
+
+If the main optimizer is SGD, it is advised to have a second Adam optimizer
+for the quantizer.
+
+**Warning**: you must always wrap your model with `DistributedDataParallel`
+after having created the quantizer, otherwise the quantizer parameters won't be optimized!
+
+
 
 ## Examples
 

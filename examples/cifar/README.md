@@ -5,7 +5,6 @@
 You must first install `diffq`, then the requirements for this example. To do so, run **from the root of the repository**:
 ```bash
 pip install .
-make examples
 cd examples/cifar
 pip install -r requirements
 ```
@@ -49,6 +48,33 @@ for instance
 ./train.py db.name=cifar100 model=w_resnet quant.penalty=5 quant.group_size=16
 ```
 
+See the Supplementary Material, Section A.4, and table B.2 for more information on the hyper-parameter used.
+
+## LSQ
+
+In order to run experiments with LSQ, you will first need to train a baseline model
+
+```
+./train.py db.name=cifar10 model=resnet
+```
+
+Then you can fine tune with LSQ with
+
+```
+./train.py db.name=cifar10 model=resnet dummy=ft \
+	'continue_from="exp_db.name=cifar10,model=resnet"' continue_best=true \
+	quant.lsq=true quant.bits=4 lr=0.01
+
+```
+
+
+## Resnet-20
+
+To run experiments with a Resnet-20 on CIFAR-10:
+
+```
+./train.py preset=res20 quant.penalty=10 quant.group_size=16
+```
 
 ## License
 
@@ -56,3 +82,4 @@ See the file ../../LICENSE for more details.
 
 The files `src/mobilenet.py` and `src/resnet.py` are taken from [kuangliu/pytorch-cifar](https://github.com/kuangliu/pytorch-cifar), released as MIT.
 The file `src/wide_resnet.py` is taken from [meliketoy/wide-resnet](https://github.com/meliketoy/wide-resnet.pytorch), released as MIT.
+The file `src/resnet20.py` is taken from [akamaster/pytorch_resnet_cifar10](https://github.com/akamaster/pytorch_resnet_cifar10), released as BSD 2-Clause "Simplified".
