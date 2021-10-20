@@ -193,7 +193,11 @@ class BaseQuantizer:
 
     def get_quantized_state(self, packed=True):
         """
-        Actual implementation for `get_quantized_state`.
+        Return a quantized representation fo the weights. If `packed` is True,
+        this will also perform bitpacking to ensure optimal store.
+
+        You can restore a model from a quantized state either using `BaseQuantizer.restore_quantized_state`
+        or `diffq.restore_quantized_state` if you do not have the original quantizer around anymore.
         """
         float16_params = []
         for p in self._float16:
