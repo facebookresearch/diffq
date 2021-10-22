@@ -27,7 +27,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip setuptools wheel
         python -m pip install Cython
-        cython *.pyx
+        python -m cython bitpack.pyx
 
     - name: Install cibuildwheel
       run: python -m pip install cibuildwheel==2.1.3
