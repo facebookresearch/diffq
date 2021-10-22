@@ -34,5 +34,8 @@ reset:
 	./examples/reset_repo.sh fairseq
 	./examples/reset_repo.sh deit
 
+wheels:
+	python3 get_build.py
+	cd dist && unzip build.zip
 
 .PHONY: linter tests docs dist examples patches reset

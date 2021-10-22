@@ -1,11 +1,11 @@
 name: build
-# on:
-#   push:
-#     tags:
-#       - '*'
 on:
   push:
-    branches: [ main ]
+    tags:
+      - '*'
+# on:
+#   push:
+#     branches: [ main ]
 
 jobs:
   build_wheels:
