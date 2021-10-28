@@ -57,4 +57,4 @@ class TestLSQ(QuantizeTest):
         y3 = model(x)
 
         self.assertNotAlmostEqual(torch.norm(y - y2).item(), 0)
-        self.assertAlmostEqual(torch.norm(y2 - y3).item(), 0)
+        self.assertAlmostEqual(torch.norm(y2 - y3).item(), 0, places=6)
