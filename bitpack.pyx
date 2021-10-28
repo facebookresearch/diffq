@@ -59,7 +59,7 @@ def _unpack(uint64_t[:, :, ::1] packed):
     return out
 
 
-def pack(x: torch.Tensor, nbits: int = 0, block_size: int = 32):
+def pack(x: torch.Tensor, nbits: int = 0, block_size: int = 32) -> torch.Tensor:
     assert not x.dtype.is_floating_point
     if x.numel() > 0:
         assert x.max().item() < 2 ** 15
@@ -69,11 +69,15 @@ def pack(x: torch.Tensor, nbits: int = 0, block_size: int = 32):
     ideal_size = int(math.ceil(len(x) / (64 * block_size)) * (64 * block_size))
     if ideal_size != len(x):
         x = torch.nn.functional.pad(x, (0, ideal_size - len(x)))
-    return _pack(x.numpy(), nbits, block_size)
+    out = _pack(x.numpy(), nbits, block_size)
+    # We explicitely stay in PyTorch Tensor as this will be more optimally stored
+    # on disk with torch.save.
+    return torch.from_numpy(out.view(np.int64))
 
 
-def unpack(packed: np.ndarray, reference: torch.Tensor):
-    assert packed.dtype == np.uint64
-    out = _unpack(packed)
+def unpack(packed: torch.Tensor, reference: torch.Tensor):
+    assert packed.dtype == torch.int64
+    packed_np = packed.numpy().view(np.uint64)
+    out = _unpack(packed_np)
     out = out[:reference.numel()]
     return torch.from_numpy(out).view_as(reference).to(reference.device)

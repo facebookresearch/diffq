@@ -285,8 +285,11 @@ class DiffQuantizer(BaseQuantizer):
         all_packed = []
         for bit in range(1, 15):
             sub_levels = levels[bits == bit]
-            packed = bitpack.pack(sub_levels, bit)
-            all_packed.append(packed)
+            if not sub_levels.numel():
+                all_packed.append(None)
+            else:
+                packed = bitpack.pack(sub_levels, bit)
+                all_packed.append(packed)
         packed_bits = bitpack.pack(bits - self.min_bits)
         return (all_packed, scales, packed_bits)
 
@@ -299,6 +302,8 @@ class DiffQuantizer(BaseQuantizer):
                              dtype=torch.short, device=qparam.param.device)
         for idx, packed_levels in enumerate(packed_all_levels):
             bit = idx + 1
+            if packed_levels is None:
+                continue
             sub_levels = levels[bits == bit]
             levels[bits == bit] = bitpack.unpack(packed_levels, sub_levels)
         return (levels, scales, bits)
