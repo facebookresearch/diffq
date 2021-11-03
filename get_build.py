@@ -6,7 +6,6 @@
 
 from pathlib import Path
 import requests
-import zipfile
 
 root = Path('dist')
 root.mkdir(exist_ok=True, parents=True)
@@ -25,4 +24,3 @@ with open(root / 'build.zip', 'wb') as f:
         if not d:
             break
         f.write(d)
-
