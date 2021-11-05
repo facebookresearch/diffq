@@ -20,6 +20,7 @@ def run(args):
     from src import solver as slv
     from src.mobilenet import MobileNet
     from src.resnet import ResNet18
+    from src.resnet20 import resnet20
     from src.wide_resnet import Wide_ResNet
 
     import torch
@@ -27,6 +28,8 @@ def run(args):
 
     logger.info("Running on host %s", socket.gethostname())
     distrib.init(args, args.rendezvous_file)
+    # torch also initialize cuda seed if available
+    torch.manual_seed(args.seed)
 
     # validate distributed training
     assert args.batch_size % distrib.world_size == 0
@@ -42,6 +45,8 @@ def run(args):
     # build the model
     if args.model.lower() == 'resnet':
         model = ResNet18(num_classes=num_classes)
+    elif args.model.lower() == 'resnet20':
+        model = resnet20(num_classes=num_classes)
     elif args.model.lower() == 'w_resnet':
         # WideResNet params
         depth = 28
@@ -59,11 +64,8 @@ def run(args):
     model_size = sum(p.numel() for p in model.parameters()) * 4 / 2**20
     logger.info('Size: %.1f MB', model_size)
 
-    # torch also initialize cuda seed if available
-    torch.manual_seed(args.seed)
     if torch.cuda.is_available():
         model.cuda()
-        torch.backends.cudnn.bechmark = True
 
     params = model.parameters()
     # optimizer
@@ -78,7 +80,7 @@ def run(args):
             momentum=args.momentum, alpha=args.alpha)
     elif args.optim == "sgd":
         optimizer = torch.optim.SGD(params, lr=args.lr, momentum=args.momentum,
-                                    weight_decay=args.w_decay, nesterov=args.nestrov)
+                                    weight_decay=args.w_decay, nesterov=args.nesterov)
     else:
         logger.fatal('Invalid optimizer %s', args.optim)
         os._exit(1)
@@ -107,6 +109,7 @@ def run(args):
             bits=args.quant.bits, qat=args.quant.qat, exclude=args.quant.exclude)
     else:
         quantizer = None
+
     criterion = torch.nn.CrossEntropyLoss()
 
     # Construct Solver

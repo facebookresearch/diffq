@@ -1,6 +1,7 @@
 defaults:
   - hydra/job_logging: colorlog
   - hydra/hydra_logging: colorlog
+  - preset: default
 
 db:
   name: 'cifar10'  # available options are cifar10 and cifar100 at the moment
@@ -35,7 +36,7 @@ batch_size: 128
 mixed: True  # if true, uses mixed precision training
 beta2: 0.999
 max_norm: 5
-nestrov: True
+nesterov: True
 alpha: 0.9
 
 # learning rate scheduling

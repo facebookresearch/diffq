@@ -3,7 +3,6 @@
 #
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
-
 import json
 import logging
 from pathlib import Path
@@ -12,7 +11,7 @@ import time
 
 import torch
 from . import distrib
-from .utils import bold, copy_state, pull_metric, LogProgress
+from .utils import bold, copy_state, LogProgress
 
 
 logger = logging.getLogger(__name__)
@@ -85,6 +84,8 @@ class Solver(object):
             package['quant_opt'] = self.quantizer.opt.state_dict()
         if self.args.mixed:
             package['scaler'] = self.scaler.state_dict()
+        if self.sched is not None:
+            package['sched'] = self.sched.state_dict()
         package['history'] = self.history
         package['best_state'] = self.best_state
         package['args'] = self.args
@@ -104,20 +105,21 @@ class Solver(object):
         if load_from:
             logger.info(f'Loading checkpoint model: {load_from}')
             package = torch.load(load_from, 'cpu')
+            strict = load_from == self.checkpoint
             if load_from == self.continue_from and self.args.continue_best:
-                self.model.load_state_dict(package['best_state'])
+                self.model.load_state_dict(package['best_state'], strict=strict)
             else:
-                self.model.load_state_dict(package['state'])
-            if 'optimizer' in package and not self.args.continue_best:
-                # Ignore LR from checkpoint as we replay all scheduler steps
-                package['optimizer']['param_groups'][0]["lr"] = self.args.lr
+                self.model.load_state_dict(package['state'], strict=strict)
+            if load_from == self.checkpoint:
                 self.optimizer.load_state_dict(package['optimizer'])
-            if self.quantizer and hasattr(self.quantizer, 'opt'):
-                self.quantizer.opt.load_state_dict(package['quant_opt'])
-            if self.args.mixed:
-                self.scaler.load_state_dict(package['scaler'])
-            self.history = package['history']
-            self.best_state = package['best_state']
+                if self.quantizer and hasattr(self.quantizer, 'opt'):
+                    self.quantizer.opt.load_state_dict(package['quant_opt'])
+                if self.args.mixed:
+                    self.scaler.load_state_dict(package['scaler'])
+                if self.sched is not None:
+                    self.sched.load_state_dict(package['sched'])
+                self.history = package['history']
+                self.best_state = package['best_state']
 
     def train(self):
         # Optimizing the model
@@ -163,9 +165,17 @@ class Solver(object):
                 new_lr = self.optimizer.state_dict()["param_groups"][0]["lr"]
                 logger.info(f'Learning rate adjusted: {new_lr:.5f}')
 
-            best_loss = min(pull_metric(self.history, 'valid') + [valid_loss])
+            best_loss = float('inf')
+            best_size = 0
+            best_acc = 0
+            for metrics in self.history:
+                if metrics['valid'] < best_loss:
+                    best_size = metrics['model_size']
+                    best_acc = metrics['valid_acc']
+                    best_loss = metrics['valid']
             metrics = {'train': train_loss, 'train_acc': train_acc,
-                       'valid': valid_loss, 'valid_acc': valid_acc, 'best': best_loss,
+                       'valid': valid_loss, 'valid_acc': valid_acc,
+                       'best': best_loss, 'best_size': best_size, 'best_acc': best_acc,
                        'compressed_model_size': self.compressed_model_size,
                        'model_size': self.model_size}
             # Save the best model

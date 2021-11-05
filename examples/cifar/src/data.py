@@ -47,5 +47,6 @@ def get_loader(args, model_name):
         num_classes = 100
     else:
         logger.error("DB not supported.")
+        assert False
 
     return trainset, testset, num_classes
