@@ -36,7 +36,7 @@ batch_size: 128
 mixed: True  # if true, uses mixed precision training
 beta2: 0.999
 max_norm: 5
-nestrov: True
+nesterov: True
 alpha: 0.9
 
 # learning rate scheduling
