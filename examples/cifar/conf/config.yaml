@@ -1,6 +1,7 @@
 defaults:
   - hydra/job_logging: colorlog
   - hydra/hydra_logging: colorlog
+  - preset: default
 
 db:
   name: 'cifar10'  # available options are cifar10 and cifar100 at the moment

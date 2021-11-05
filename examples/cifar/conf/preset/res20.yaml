@@ -1,0 +1,21 @@
+# @package _global_
+
+epochs: 600
+step:
+  step_size: 200
+  gamma: 0.1
+optim: sgd
+w_decay: 0.0002
+lr: 0.1
+momentum: 0.9
+model: resnet20
+
+db:
+  name: cifar10
+
+quant:
+  exclude: ['bias']
+  min_size: 0
+  lr: 2e-4
+  min_bits: 1
+  max_bits: 10
