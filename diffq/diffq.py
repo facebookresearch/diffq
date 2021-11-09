@@ -13,7 +13,7 @@ import typing as tp
 
 import torch
 
-from . import bitpack
+from . import torch_pack
 from .base import BaseQuantizer
 from .uniform import uniform_quantize, uniform_unquantize
 from .utils import capture_init, simple_repr
@@ -288,16 +288,16 @@ class DiffQuantizer(BaseQuantizer):
             if not sub_levels.numel():
                 all_packed.append(None)
             else:
-                packed = bitpack.pack(sub_levels, bit)
+                packed = torch_pack.pack(sub_levels, bit)
                 all_packed.append(packed)
-        packed_bits = bitpack.pack(bits - self.min_bits)
+        packed_bits = torch_pack.pack(bits - self.min_bits)
         return (all_packed, scales, packed_bits)
 
     def _bit_unpack_param(self, qparam, packed):
         """Unpack bitpacked representation. Should be overriden.
         """
         packed_all_levels, scales, packed_bits = packed
-        bits = bitpack.unpack(packed_bits, qparam.logit) + self.min_bits
+        bits = torch_pack.unpack(packed_bits, qparam.logit) + self.min_bits
         levels = torch.empty(qparam.logit.numel(), self.group_size,
                              dtype=torch.short, device=qparam.param.device)
         for idx, packed_levels in enumerate(packed_all_levels):
@@ -305,7 +305,7 @@ class DiffQuantizer(BaseQuantizer):
             if packed_levels is None:
                 continue
             sub_levels = levels[bits == bit]
-            levels[bits == bit] = bitpack.unpack(packed_levels, sub_levels)
+            levels[bits == bit] = torch_pack.unpack(packed_levels, sub_levels)
         return (levels, scales, bits)
 
     def detach(self):
