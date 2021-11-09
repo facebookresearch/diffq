@@ -15,7 +15,13 @@ URL = 'https://github.com/facebookresearch/diffq'
 EMAIL = 'defossez@fb.com'
 AUTHOR = 'Alexandre Défossez, Yossi Adi, Gabriel Synnaeve'
 REQUIRES_PYTHON = '>=3.6.0'
-VERSION = "0.2.2a1"
+
+for line in open('diffq/__init__.py'):
+    line = line.strip()
+    if '__version__' in line:
+        context = {}
+        exec(line, context)
+        VERSION = context['__version__']
 
 HERE = Path(__file__).parent
 
@@ -40,7 +46,7 @@ setup(
     ext_modules=[Extension(
         "diffq.bitpack",
         sources=["bitpack.pyx"])],
-    extras_require={'dev': ['coverage', 'flake8', 'pdoc3']},
+    extras_require={'dev': ['coverage', 'flake8', 'pdoc3', 'torchvision']},
     include_package_data=True,
     license='Creative Commons Attribution-NonCommercial 4.0 International',
     classifiers=[

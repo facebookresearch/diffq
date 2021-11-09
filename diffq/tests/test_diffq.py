@@ -6,6 +6,8 @@
 
 from copy import deepcopy
 from functools import partial
+import os
+from tempfile import NamedTemporaryFile
 
 import torch
 from torch import nn
@@ -13,6 +15,7 @@ from torch import nn
 import diffq
 from diffq.tests.base import QuantizeTest
 from diffq.diffq import DiffQuantizer
+from diffq import ts_export
 
 
 class TestDiffQ(QuantizeTest):
@@ -188,9 +191,17 @@ class TestDiffQ(QuantizeTest):
             if n.endswith(quant.suffix):
                 p.data.uniform_(-2, 2)
         state = quant.get_quantized_state()
+        state_torch_pack = quant.get_quantized_state(torch_pack=True)
 
         model2 = nn.Linear(53, 8, bias=False)
         diffq.restore_quantized_state(model2, state)
+
+        with quant.enter_quantize():
+            for p1, p2 in zip(model.parameters(), model2.parameters()):
+                self.assertAlmostEqual(torch.norm(p1 - p2).item(), 0)
+
+        model2 = nn.Linear(53, 8, bias=False)
+        diffq.restore_quantized_state(model2, state_torch_pack)
 
         with quant.enter_quantize():
             for p1, p2 in zip(model.parameters(), model2.parameters()):
@@ -202,6 +213,29 @@ class TestDiffQ(QuantizeTest):
         r = repr(quant)
         self.assertTrue("min_size=0" in r)
         self.assertTrue("group_size=8" in r)
+
+    def test_torchscript_export(self):
+        from torchvision import models
+        model = models.resnet18(pretrained=False)
+        quant = DiffQuantizer(model)
+        for qp in quant._qparams:
+            if qp.other is None:
+                qp.logit.data.uniform_(-1, 1)
+        ms = quant.true_model_size()
+        model.eval()
+        x = torch.Tensor(1, 3, 256, 256)
+        y = model(x)
+        with NamedTemporaryFile('wb') as file:
+            ts = ts_export.export(quant, file.name)
+            size = os.stat(file.name).st_size / 2**20
+            self.assertLessEqual(size, 1.2 * ms, (size, ms))
+            ts.eval()
+            y2 = ts(x)
+            self.assertAlmostEqual(torch.norm(y - y2).item(), 0)
+            ts = torch.jit.load(file.name)
+            ts.eval()
+            y2 = ts(x)
+            self.assertAlmostEqual(torch.norm(y - y2).item(), 0)
 
 
 class _TestBound(nn.Module):

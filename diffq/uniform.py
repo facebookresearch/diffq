@@ -10,7 +10,6 @@ Classic uniform quantization over n bits.
 from typing import Tuple
 import torch
 
-from . import bitpack
 from .base import BaseQuantizer
 from .utils import capture_init, simple_repr
 
@@ -103,16 +102,17 @@ class UniformQuantizer(BaseQuantizer):
         levels, scales = quantized
         return uniform_unquantize(levels, scales, torch.tensor(self.bits))
 
-    def _bit_pack_param(self, qparam, quantized):
+    def _bit_pack_param(self, qparam, quantized, pack_fn):
         levels, scales = quantized
-        packed = bitpack.pack(levels, self.bits)
+        packed = pack_fn(levels, self.bits)
         return (packed, scales)
 
-    def _bit_unpack_param(self, qparam, packed):
+    def _bit_unpack_param(self, qparam, packed, unpack_fn):
         """Unpack bitpacked representation. Should be overriden
         """
         packed_levels, scales = packed
-        levels = bitpack.unpack(packed_levels, qparam.param)
+        levels = unpack_fn(
+            packed_levels, qparam.param.numel()).to(qparam.param.device).view_as(qparam.param)
         return (levels, scales)
 
     def model_size(self):

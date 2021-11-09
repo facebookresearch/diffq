@@ -12,6 +12,9 @@ This package implements different quantization strategies:
 - `diffq.diffq.DiffQuantizer`: differentiable quantizer based on scaled noise injection.
 - `diffq.lsq.LSQ`: Learnt Step size Quantizer based on [Esser et al. 2019] https://arxiv.org/abs/1902.08153
 - `diffq.bitpack`: efficient CPU bit-packing for returning quantized states.
+- `diffq.torch_pack`: torch based bit-packing compatible with torchscript.
+- `diffq.ts_export`: support exporting DiffQ based models to torchscript.
+
 
 Also, do check `diffq.base.BaseQuantizer` for the common methods of all Quantizers.
 """
@@ -20,3 +23,6 @@ from .uniform import UniformQuantizer
 from .diffq import DiffQuantizer
 from .lsq import LSQ
 from .base import restore_quantized_state
+
+
+__version__ = "0.2.2a1"

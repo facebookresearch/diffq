@@ -75,9 +75,10 @@ def pack(x: torch.Tensor, nbits: int = 0, block_size: int = 32) -> torch.Tensor:
     return torch.from_numpy(out.view(np.int64))
 
 
-def unpack(packed: torch.Tensor, reference: torch.Tensor):
+def unpack(packed: torch.Tensor, length: tp.Optional[int] = None):
     assert packed.dtype == torch.int64
     packed_np = packed.numpy().view(np.uint64)
     out = _unpack(packed_np)
-    out = out[:reference.numel()]
-    return torch.from_numpy(out).view_as(reference).to(reference.device)
+    if length is not None:
+        out = out[:length]
+    return torch.from_numpy(out)

@@ -13,7 +13,6 @@ import typing as tp
 
 import torch
 
-from . import torch_pack
 from .base import BaseQuantizer
 from .uniform import uniform_quantize, uniform_unquantize
 from .utils import capture_init, simple_repr
@@ -280,7 +279,7 @@ class DiffQuantizer(BaseQuantizer):
         bits = bits[:, None]
         return uniform_unquantize(levels, param_scale, bits).view_as(qparam.param.data)
 
-    def _bit_pack_param(self, qparam, quantized):
+    def _bit_pack_param(self, qparam, quantized, pack_fn):
         levels, scales, bits = quantized
         all_packed = []
         for bit in range(1, 15):
@@ -288,16 +287,17 @@ class DiffQuantizer(BaseQuantizer):
             if not sub_levels.numel():
                 all_packed.append(None)
             else:
-                packed = torch_pack.pack(sub_levels, bit)
+                packed = pack_fn(sub_levels, bit)
                 all_packed.append(packed)
-        packed_bits = torch_pack.pack(bits - self.min_bits)
+        packed_bits = pack_fn(bits - self.min_bits)
         return (all_packed, scales, packed_bits)
 
-    def _bit_unpack_param(self, qparam, packed):
+    def _bit_unpack_param(self, qparam, packed, unpack_fn):
         """Unpack bitpacked representation. Should be overriden.
         """
         packed_all_levels, scales, packed_bits = packed
-        bits = torch_pack.unpack(packed_bits, qparam.logit) + self.min_bits
+        bits = unpack_fn(packed_bits, qparam.logit.numel()) + self.min_bits
+        bits = bits.to(qparam.param.device)
         levels = torch.empty(qparam.logit.numel(), self.group_size,
                              dtype=torch.short, device=qparam.param.device)
         for idx, packed_levels in enumerate(packed_all_levels):
@@ -305,7 +305,8 @@ class DiffQuantizer(BaseQuantizer):
             if packed_levels is None:
                 continue
             sub_levels = levels[bits == bit]
-            levels[bits == bit] = torch_pack.unpack(packed_levels, sub_levels)
+            levels[bits == bit] = unpack_fn(
+                packed_levels, sub_levels.numel()).view_as(sub_levels).to(sub_levels)
         return (levels, scales, bits)
 
     def detach(self):

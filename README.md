@@ -9,6 +9,13 @@ in order to achieve a given trade-off between model size and accuracy.
 
 Go read [our paper][paper] for more details.
 
+
+## What's up?
+
+See [the changelog](CHANGELOG.md) for details on releases.
+
+- 2021-11-?: version 0.2.2: adding support for torchscript.
+
 ## Requirements
 
 DiffQ requires Python 3.7, and a reasonably recent version of PyTorch (1.7.1 ideally).
@@ -56,6 +63,11 @@ torch.save(quantizer.get_quantized_state(), "some_file.th")
 # You can later load back the model with
 model = MyModel()
 diffq.restore_quantized_state(model, torch.load("some_file.th"))
+
+# For DiffQ models, we support exporting the model to Torscript with optimal storage.
+# Once loaded, the model will be stored in fp32 in memory (int8 support coming up).
+from diffq.ts_export import export
+export(quantizer, 'quantized.ts')
 ```
 
 ## Documentation
@@ -114,7 +126,12 @@ for the quantizer.
 **Warning**: you must always wrap your model with `DistributedDataParallel`
 after having created the quantizer, otherwise the quantizer parameters won't be optimized!
 
+### TorchScript support
 
+At the moment the TorchScript support is experimental. We support saving
+the model with TorchScript to disk with optimal storage. Once loaded, the model
+is stored in FP32 in memory. We are working towards adding support for int8
+in memory. See the `diffq.ts_export.export` function in the API.
 
 ## Examples
 
