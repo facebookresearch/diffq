@@ -14,7 +14,7 @@ DESCRIPTION = ('Differentiable quantization framework for PyTorch.')
 URL = 'https://github.com/facebookresearch/diffq'
 EMAIL = 'defossez@fb.com'
 AUTHOR = 'Alexandre Défossez, Yossi Adi, Gabriel Synnaeve'
-REQUIRES_PYTHON = '>=3.6.0'
+REQUIRES_PYTHON = '>=3.7.0'
 
 for line in open('diffq/__init__.py'):
     line = line.strip()
