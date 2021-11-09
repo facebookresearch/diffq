@@ -15,7 +15,7 @@ URL = 'https://github.com/facebookresearch/diffq'
 EMAIL = 'defossez@fb.com'
 AUTHOR = 'Alexandre Défossez, Yossi Adi, Gabriel Synnaeve'
 REQUIRES_PYTHON = '>=3.6.0'
-VERSION = "0.2.1"
+VERSION = "0.2.2a1"
 
 HERE = Path(__file__).parent
 
