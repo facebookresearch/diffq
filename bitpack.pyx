@@ -17,7 +17,7 @@ import torch
 def _pack(int16_t[::1] indexes, int nbits=0, int block_size=32):
     if nbits == 0:
         # automatically chose bitwidth
-        nbits = int(math.ceil(math.log2(1 + max(indexes))))
+        nbits = int(math.ceil(math.log2(1 + np.max(indexes))))
     cdef int le = len(indexes)
     cdef int storage = 64
     assert le % (storage * block_size) == 0
