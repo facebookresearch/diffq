@@ -18,6 +18,9 @@ import zlib
 
 import torch
 
+from . import bitpack
+from . import torch_pack as torch_pack_mod
+
 
 class BaseQuantizer:
     @dataclass
@@ -168,13 +171,15 @@ class BaseQuantizer:
             if flatten:
                 rnn.flatten_parameters()
 
-    def _bit_pack_param(self, qparam: _QuantizedParam, quantized: tp.Any) -> tp.Any:
+    def _bit_pack_param(self, qparam: _QuantizedParam, quantized: tp.Any,
+                        pack_fn: tp.Any) -> tp.Any:
         """Further bitpack the quantized representation.
         This is used to return the quantized state. Should be overriden.
         """
         return quantized
 
-    def _bit_unpack_param(self, qparam: _QuantizedParam, packed: tp.Any) -> tp.Any:
+    def _bit_unpack_param(self, qparam: _QuantizedParam, packed: tp.Any,
+                          unpack_fn: tp.Any) -> tp.Any:
         """Unpack bitpacked representation. Should be overriden
         """
         return packed
@@ -191,10 +196,12 @@ class BaseQuantizer:
         """
         raise NotImplementedError()
 
-    def get_quantized_state(self, packed=True):
+    def get_quantized_state(self, packed=True, torch_pack=False):
         """
         Return a quantized representation fo the weights. If `packed` is True,
         this will also perform bitpacking to ensure optimal store.
+        If `torck_pack` is true, the bitpacking from `torch_pack` will be used.
+        It is slower (except maybe on GPU), but is compatible with torchscript.
 
         You can restore a model from a quantized state either using
         `BaseQuantizer.restore_quantized_state` or `diffq.restore_quantized_state`
@@ -205,13 +212,18 @@ class BaseQuantizer:
             q = p.data.half()
             float16_params.append(q)
 
+        if torch_pack:
+            pack_fn = torch_pack_mod.pack
+        else:
+            pack_fn = bitpack.pack
+
         all_quantized = []
         for qparam in self._qparams:
             if qparam.other is not None:
                 continue
             quantized = self._quantize_param(qparam)
             if packed:
-                quantized = self._bit_pack_param(qparam, quantized)
+                quantized = self._bit_pack_param(qparam, quantized, pack_fn=pack_fn)
             all_quantized.append(quantized)
 
         state = {
@@ -226,6 +238,7 @@ class BaseQuantizer:
             "init_kwargs": kwargs,
             "klass": self.__class__,
             "packed": packed,
+            "torch_pack": torch_pack
         }
         return state
 
@@ -241,6 +254,12 @@ class BaseQuantizer:
 
         meta = state.get("meta", {})
         packed = meta.get("packed", False)
+        torch_pack = meta.get("torch_pack", False)
+
+        if torch_pack:
+            unpack_fn = torch_pack_mod.unpack
+        else:
+            unpack_fn = bitpack.unpack
 
         remaining = list(state["quantized"])
         for qparam in self._qparams:
@@ -249,7 +268,7 @@ class BaseQuantizer:
                 continue
             quantized = remaining.pop(0)
             if packed:
-                quantized = self._bit_unpack_param(qparam, quantized)
+                quantized = self._bit_unpack_param(qparam, quantized, unpack_fn)
             qparam.param.data[:] = self._unquantize_param(qparam, quantized)
         assert not remaining
         self._fix_rnns()
