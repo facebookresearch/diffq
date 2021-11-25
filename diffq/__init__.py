@@ -23,6 +23,7 @@ from .uniform import UniformQuantizer
 from .diffq import DiffQuantizer
 from .lsq import LSQ
 from .base import restore_quantized_state
+from . import ts_export
 
 
 __version__ = "0.2.2a1"

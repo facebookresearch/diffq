@@ -14,7 +14,7 @@ Go read [our paper][paper] for more details.
 
 See [the changelog](CHANGELOG.md) for details on releases.
 
-- 2021-11-?: version 0.2.2: adding support for torchscript.
+- 2021-11-25: version 0.2.2: adding support for torchscript.
 
 ## Requirements
 
