@@ -6,7 +6,7 @@ You must first install `diffq`, then the requirements for this example. To do so
 ```bash
 pip install .
 cd examples/cifar
-pip install -r requirements
+pip install -r requirements.txt
 ```
 
 ## Training
