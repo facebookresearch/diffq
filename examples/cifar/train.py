@@ -22,8 +22,10 @@ def run(args):
     from src.resnet import ResNet18
     from src.resnet20 import resnet20
     from src.wide_resnet import Wide_ResNet
+    from src.vit import ViT
 
     import torch
+    import torch.nn as nn
     from diffq import DiffQuantizer, UniformQuantizer, LSQ
 
     logger.info("Running on host %s", socket.gethostname())
@@ -56,6 +58,18 @@ def run(args):
                             dropout_rate=do, num_classes=num_classes)
     elif args.model.lower() == 'mobilenet':
         model = MobileNet(num_classes=num_classes)
+    elif args.model.lower() == 'vit':
+        model = ViT(
+            image_size = 32,
+            patch_size = 4,
+            num_classes = 10,
+            dim = 512,
+            depth = 6,
+            heads = 8,
+            mlp_dim = 512,
+            dropout = 0.1,
+            emb_dropout = 0.1
+        )
     else:
         print('Arch not supported.')
         os._exit(1)
