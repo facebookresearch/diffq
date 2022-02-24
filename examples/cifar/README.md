@@ -76,6 +76,15 @@ To run experiments with a Resnet-20 on CIFAR-10:
 ./train.py preset=res20 quant.penalty=10 quant.group_size=16
 ```
 
+## Vision Transformer
+
+To run experiments with a Vision Transformer on CIFAR-10:
+
+```
+./train.py db.name=cifar10 model=vit quant.penalty=5 quant.group_size=16
+```
+
+
 ## License
 
 See the file ../../LICENSE for more details.
