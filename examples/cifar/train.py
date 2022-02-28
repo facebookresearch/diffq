@@ -62,7 +62,7 @@ def run(args):
         model = ViT(
             image_size = 32,
             patch_size = 4,
-            num_classes = 10,
+            num_classes = num_classes,
             dim = 512,
             depth = 6,
             heads = 8,
