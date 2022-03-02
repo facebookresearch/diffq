@@ -84,6 +84,13 @@ To run experiments with a Vision Transformer on CIFAR-10:
 ./train.py db.name=cifar10 model=vit quant.penalty=5 quant.group_size=16
 ```
 
+## Pretrained Vision Transformer fine tune with LSQ
+
+```
+./train.py db.name=cifar10 model=vit_timm continue_best=true \
+	quant.lsq=true quant.bits=4 lr=0.01
+```
+
 
 ## License
 
