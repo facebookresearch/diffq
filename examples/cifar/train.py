@@ -70,6 +70,10 @@ def run(args):
             dropout = 0.1,
             emb_dropout = 0.1
         )
+    elif args.model.lower() == 'vit_timm':
+        import timm
+        model = timm.create_model("vit_base_patch16_224", pretrained=True)
+        model.head = nn.Linear(model.head.in_features, 10)
     else:
         print('Arch not supported.')
         os._exit(1)
