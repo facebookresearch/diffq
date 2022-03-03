@@ -223,7 +223,7 @@ class TestDiffQ(QuantizeTest):
                 qp.logit.data.uniform_(-1, 1)
         ms = quant.true_model_size()
         model.eval()
-        x = torch.Tensor(1, 3, 256, 256)
+        x = torch.randn(1, 3, 256, 256)
         y = model(x)
         with NamedTemporaryFile('wb') as file:
             ts = ts_export.export(quant, file.name)

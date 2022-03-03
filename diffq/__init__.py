@@ -26,4 +26,4 @@ from .base import restore_quantized_state
 from . import ts_export
 
 
-__version__ = "0.2.2"
+__version__ = "0.2.3a1"

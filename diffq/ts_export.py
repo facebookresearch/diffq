@@ -84,6 +84,9 @@ def export(quantizer: DiffQuantizer, path: tp.Union[str, Path]):
     """Export the given quantized model to the given path.
     We must save the quantized model ourselves, as we need to recompress
     the zip archive afterwards.
+
+    ..Warning:: This will completely destroy the model and the quantizer, so you probably
+        want to call this only once at the end of training.
     """
     packed: tp.List[_DiffQPacked] = []
     uniq_name = ''.join([random.choice("abcdefghijklmnopqrstuvwxyz") for _ in range(12)])
