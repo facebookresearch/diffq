@@ -60,20 +60,19 @@ def run(args):
         model = MobileNet(num_classes=num_classes)
     elif args.model.lower() == 'vit':
         model = ViT(
-            image_size = 32,
-            patch_size = 4,
-            num_classes = num_classes,
-            dim = 512,
-            depth = 6,
-            heads = 8,
-            mlp_dim = 512,
-            dropout = 0.1,
-            emb_dropout = 0.1
-        )
+            image_size=32,
+            patch_size=4,
+            num_classes=num_classes,
+            dim=512,
+            depth=6,
+            heads=8,
+            mlp_dim=512,
+            dropout=0.1,
+            emb_dropout=0.1)
     elif args.model.lower() == 'vit_timm':
         import timm
         model = timm.create_model("vit_base_patch16_224", pretrained=True)
-        model.head = nn.Linear(model.head.in_features, 10)
+        model.head = nn.Linear(model.head.in_features, num_classes)
     else:
         print('Arch not supported.')
         os._exit(1)

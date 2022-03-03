@@ -1,3 +1,9 @@
+# Copyright (c) Facebook, Inc. and its affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the license found in the
+# LICENSE file in the root directory of this source tree.
+
 # This file is taken from https://github.com/lucidrains/vit-pytorch/blob/main/vit_pytorch/vit.py
 # which was released under the MIT license. Original copyright:
 # MIT License
@@ -75,7 +81,7 @@ class Attention(nn.Module):
         )
 
     def forward(self, x, mask=None):
-        b, n, _, h = *x.shape, self.heads
+        _, _, _, h = *x.shape, self.heads
         qkv = self.to_qkv(x).chunk(3, dim=-1)
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h=h), qkv)
 
@@ -114,13 +120,15 @@ class Transformer(nn.Module):
 
 
 class ViT(nn.Module):
-    def __init__(self, *, image_size, patch_size, num_classes, dim, depth, heads, mlp_dim, channels=3, dropout=0.,
-                 emb_dropout=0.):
+    def __init__(self, *, image_size, patch_size, num_classes, dim, depth,
+                 heads, mlp_dim, channels=3, dropout=0., emb_dropout=0.):
         super().__init__()
         assert image_size % patch_size == 0, 'image dimensions must be divisible by the patch size'
         num_patches = (image_size // patch_size) ** 2
         patch_dim = channels * patch_size ** 2
-        assert num_patches > MIN_NUM_PATCHES, f'your number of patches ({num_patches}) is way too small for attention to be effective. try decreasing your patch size'
+        assert num_patches > MIN_NUM_PATCHES, (
+            f'your number of patches ({num_patches}) is way too small for '
+            'attention to be effective. try decreasing your patch size')
 
         self.patch_size = patch_size
 
