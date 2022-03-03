@@ -6,7 +6,7 @@ You must first install `diffq`, then the requirements for this example. To do so
 ```bash
 pip install .
 cd examples/cifar
-pip install -r requirements
+pip install -r requirements.txt
 ```
 
 ## Training
@@ -75,6 +75,22 @@ To run experiments with a Resnet-20 on CIFAR-10:
 ```
 ./train.py preset=res20 quant.penalty=10 quant.group_size=16
 ```
+
+## Vision Transformer
+
+To run experiments with a Vision Transformer on CIFAR-10:
+
+```
+./train.py db.name=cifar10 model=vit quant.penalty=5 quant.group_size=16
+```
+
+## Pretrained Vision Transformer fine tune with LSQ
+
+```
+./train.py db.name=cifar10 model=vit_timm continue_best=true \
+	quant.lsq=true quant.bits=4 lr=0.01
+```
+
 
 ## License
 

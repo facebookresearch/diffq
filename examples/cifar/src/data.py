@@ -11,15 +11,21 @@ logger = logging.getLogger(__name__)
 
 
 def get_loader(args, model_name):
+    if args.model == 'vit_timm':
+        img_resize = 224
+    else:
+        img_resize = 32
     if args.db.name.lower() == 'cifar10':
         transform_train = transforms.Compose([
             transforms.RandomCrop(32, padding=4),
+            transforms.Resize(img_resize),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
             ])
 
         transform_test = transforms.Compose([
+            transforms.Resize(img_resize),
             transforms.ToTensor(),
             transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
             ])
@@ -31,12 +37,14 @@ def get_loader(args, model_name):
     elif args.db.name.lower() == 'cifar100':
         transform_train = transforms.Compose([
             transforms.RandomCrop(32, padding=4),
+            transforms.Resize(img_resize),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2671)),
             ])
 
         transform_test = transforms.Compose([
+            transforms.Resize(img_resize),
             transforms.ToTensor(),
             transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2671)),
             ])
