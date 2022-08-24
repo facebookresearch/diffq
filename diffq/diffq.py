@@ -276,7 +276,8 @@ class DiffQuantizer(BaseQuantizer):
 
     def _unquantize_param(self, qparam: _QuantizedParam, quantized: tp.Any) -> torch.Tensor:
         levels, param_scale, bits = quantized
-        bits = bits[:, None]
+        if bits.dim() == 1:
+            bits = bits[:, None]
         return uniform_unquantize(levels, param_scale, bits).view_as(qparam.param.data)
 
     def _bit_pack_param(self, qparam, quantized, pack_fn):
