@@ -183,8 +183,8 @@ If you use this code or results in your paper, please cite our work as:
 @article{defossez2021differentiable,
   title={Differentiable Model Compression via Pseudo Quantization Noise},
   author={D{\'e}fossez, Alexandre and Adi, Yossi and Synnaeve, Gabriel},
-  journal={arXiv preprint arXiv:2104.09987},
-  year={2021}
+  journal={TMLR},
+  year={2022}
 }
 ```
 
