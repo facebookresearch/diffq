@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+<meta name="generator" content="pdoc 0.10.0" />
+<title>diffq.uniform API documentation</title>
+<meta name="description" content="Classic uniform quantization over n bits." />
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
+<link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js" integrity="sha256-Uv3H6lx7dJmRfRvH8TH6kJD1TSK1aFcwgx+mdg3epi8=" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => hljs.initHighlighting())</script>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>diffq.uniform</code></h1>
+</header>
+<section id="section-intro">
+<p>Classic uniform quantization over n bits.</p>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python"># Copyright (c) Facebook, Inc. and its affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the license found in the
+# LICENSE file in the root directory of this source tree.
+
+&#34;&#34;&#34;
+Classic uniform quantization over n bits.
+&#34;&#34;&#34;
+from typing import Tuple
+import torch
+
+from .base import BaseQuantizer
+from .utils import capture_init, simple_repr
+
+
+def uniform_quantize(p: torch.Tensor, bits: torch.Tensor = torch.tensor(8.)):
+    &#34;&#34;&#34;
+    Quantize the given weights over `bits` bits.
+
+    Returns:
+        - quantized levels
+        - (min, max) range.
+
+    &#34;&#34;&#34;
+    assert (bits &gt;= 1).all() and (bits &lt;= 15).all()
+    num_levels = (2 ** bits.float()).long()
+    mn = p.min().item()
+    mx = p.max().item()
+    p = (p - mn) / (mx - mn)  # put p in [0, 1]
+    unit = 1 / (num_levels - 1)  # quantization unit
+    levels = (p / unit).round()
+    if (bits &lt;= 8).all():
+        levels = levels.byte()
+    else:
+        levels = levels.short()
+    return levels, (mn, mx)
+
+
+def uniform_unquantize(levels: torch.Tensor, scales: Tuple[float, float],
+                       bits: torch.Tensor = torch.tensor(8.)):
+    &#34;&#34;&#34;
+    Unquantize the weights from the levels and scale. Return a float32 tensor.
+    &#34;&#34;&#34;
+    mn, mx = scales
+    num_levels = 2 ** bits.float()
+    unit = 1 / (num_levels - 1)
+    levels = levels.float()
+    p = levels * unit  # in [0, 1]
+    return p * (mx - mn) + mn
+
+
+class UniformQuantizer(BaseQuantizer):
+    @capture_init
+    def __init__(self, model: torch.nn.Module, bits: float = 8., min_size: float = 0.01,
+                 float16: bool = False, qat: bool = False, exclude=[], detect_bound=True):
+        &#34;&#34;&#34;
+        Args:
+            model (torch.nn.Module): model to quantize
+            bits (float): number of bits to quantize over.
+            min_size (float): minimum size in MB of a parameter to be quantized.
+            float16 (bool): if a layer is smaller than min_size, should we still do float16?
+            qat (bool): perform quantized aware training.
+            exclude (list[str]): list of patterns used to match parameters to exclude.
+                For instance `[&#39;bias&#39;]` to exclude all bias terms.
+            detect_bound (bool): if True, will detect bound parameters and reuse
+                the same quantized tensor for both.
+        &#34;&#34;&#34;
+        self.bits = float(bits)
+        self.qat = qat
+
+        super().__init__(model, min_size, float16, exclude, detect_bound)
+
+    def __repr__(self):
+        return simple_repr(self, )
+
+    def _pre_forward_train(self):
+        if self.qat:
+            for qparam in self._qparams:
+                if qparam.other is not None:
+                    new_param = qparam.other.module._parameters[qparam.other.name]
+                else:
+                    quantized = self._quantize_param(qparam)
+                    qvalue = self._unquantize_param(qparam, quantized)
+                    new_param = qparam.param + (qvalue - qparam.param).detach()
+                qparam.module._parameters[qparam.name] = new_param
+            return True
+        return False
+
+    def _post_forward_train(self):
+        if self.qat:
+            for qparam in self._qparams:
+                qparam.module._parameters[qparam.name] = qparam.param
+            return True
+        return False
+
+    def _quantize_param(self, qparam):
+        levels, scales = uniform_quantize(qparam.param.data, torch.tensor(self.bits))
+        return (levels, scales)
+
+    def _unquantize_param(self, qparam, quantized):
+        levels, scales = quantized
+        return uniform_unquantize(levels, scales, torch.tensor(self.bits))
+
+    def _bit_pack_param(self, qparam, quantized, pack_fn):
+        levels, scales = quantized
+        packed = pack_fn(levels, self.bits)
+        return (packed, scales)
+
+    def _bit_unpack_param(self, qparam, packed, unpack_fn):
+        &#34;&#34;&#34;Unpack bitpacked representation. Should be overriden
+        &#34;&#34;&#34;
+        packed_levels, scales = packed
+        levels = unpack_fn(
+            packed_levels, qparam.param.numel()).to(qparam.param.device).view_as(qparam.param)
+        return (levels, scales)
+
+    def model_size(self):
+        &#34;&#34;&#34;
+        Non differentiable model size in MB.
+        &#34;&#34;&#34;
+        total = super().model_size()
+        subtotal = 0
+        for qparam in self._qparams:
+            if qparam.other is None:  # if parameter is bound, count only one copy.
+                subtotal += self.bits * qparam.param.numel() + 64  # 2 float for the overall scales
+        subtotal /= 2**20 * 8  # bits to MegaBytes
+        return total + subtotal
+
+    def true_model_size(self):
+        &#34;&#34;&#34;
+        Return the true quantized model size, in MB, without extra
+        compression.
+        &#34;&#34;&#34;
+        return self.model_size().item()</code></pre>
+</details>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="diffq.uniform.uniform_quantize"><code class="name flex">
+<span>def <span class="ident">uniform_quantize</span></span>(<span>p: torch.Tensor, bits: torch.Tensor = tensor(8.))</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Quantize the given weights over <code>bits</code> bits.</p>
+<h2 id="returns">Returns</h2>
+<ul>
+<li>quantized levels</li>
+<li>(min, max) range.</li>
+</ul></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def uniform_quantize(p: torch.Tensor, bits: torch.Tensor = torch.tensor(8.)):
+    &#34;&#34;&#34;
+    Quantize the given weights over `bits` bits.
+
+    Returns:
+        - quantized levels
+        - (min, max) range.
+
+    &#34;&#34;&#34;
+    assert (bits &gt;= 1).all() and (bits &lt;= 15).all()
+    num_levels = (2 ** bits.float()).long()
+    mn = p.min().item()
+    mx = p.max().item()
+    p = (p - mn) / (mx - mn)  # put p in [0, 1]
+    unit = 1 / (num_levels - 1)  # quantization unit
+    levels = (p / unit).round()
+    if (bits &lt;= 8).all():
+        levels = levels.byte()
+    else:
+        levels = levels.short()
+    return levels, (mn, mx)</code></pre>
+</details>
+</dd>
+<dt id="diffq.uniform.uniform_unquantize"><code class="name flex">
+<span>def <span class="ident">uniform_unquantize</span></span>(<span>levels: torch.Tensor, scales: Tuple[float, float], bits: torch.Tensor = tensor(8.))</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Unquantize the weights from the levels and scale. Return a float32 tensor.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def uniform_unquantize(levels: torch.Tensor, scales: Tuple[float, float],
+                       bits: torch.Tensor = torch.tensor(8.)):
+    &#34;&#34;&#34;
+    Unquantize the weights from the levels and scale. Return a float32 tensor.
+    &#34;&#34;&#34;
+    mn, mx = scales
+    num_levels = 2 ** bits.float()
+    unit = 1 / (num_levels - 1)
+    levels = levels.float()
+    p = levels * unit  # in [0, 1]
+    return p * (mx - mn) + mn</code></pre>
+</details>
+</dd>
+</dl>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="diffq.uniform.UniformQuantizer"><code class="flex name class">
+<span>class <span class="ident">UniformQuantizer</span></span>
+<span>(</span><span>model: torch.nn.modules.module.Module, bits: float = 8.0, min_size: float = 0.01, float16: bool = False, qat: bool = False, exclude=[], detect_bound=True)</span>
+</code></dt>
+<dd>
+<div class="desc"><h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>model</code></strong> :&ensp;<code>torch.nn.Module</code></dt>
+<dd>model to quantize</dd>
+<dt><strong><code>bits</code></strong> :&ensp;<code>float</code></dt>
+<dd>number of bits to quantize over.</dd>
+<dt><strong><code>min_size</code></strong> :&ensp;<code>float</code></dt>
+<dd>minimum size in MB of a parameter to be quantized.</dd>
+<dt><strong><code>float16</code></strong> :&ensp;<code>bool</code></dt>
+<dd>if a layer is smaller than min_size, should we still do float16?</dd>
+<dt><strong><code>qat</code></strong> :&ensp;<code>bool</code></dt>
+<dd>perform quantized aware training.</dd>
+<dt><strong><code>exclude</code></strong> :&ensp;<code>list[str]</code></dt>
+<dd>list of patterns used to match parameters to exclude.
+For instance <code>['bias']</code> to exclude all bias terms.</dd>
+<dt><strong><code>detect_bound</code></strong> :&ensp;<code>bool</code></dt>
+<dd>if True, will detect bound parameters and reuse
+the same quantized tensor for both.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class UniformQuantizer(BaseQuantizer):
+    @capture_init
+    def __init__(self, model: torch.nn.Module, bits: float = 8., min_size: float = 0.01,
+                 float16: bool = False, qat: bool = False, exclude=[], detect_bound=True):
+        &#34;&#34;&#34;
+        Args:
+            model (torch.nn.Module): model to quantize
+            bits (float): number of bits to quantize over.
+            min_size (float): minimum size in MB of a parameter to be quantized.
+            float16 (bool): if a layer is smaller than min_size, should we still do float16?
+            qat (bool): perform quantized aware training.
+            exclude (list[str]): list of patterns used to match parameters to exclude.
+                For instance `[&#39;bias&#39;]` to exclude all bias terms.
+            detect_bound (bool): if True, will detect bound parameters and reuse
+                the same quantized tensor for both.
+        &#34;&#34;&#34;
+        self.bits = float(bits)
+        self.qat = qat
+
+        super().__init__(model, min_size, float16, exclude, detect_bound)
+
+    def __repr__(self):
+        return simple_repr(self, )
+
+    def _pre_forward_train(self):
+        if self.qat:
+            for qparam in self._qparams:
+                if qparam.other is not None:
+                    new_param = qparam.other.module._parameters[qparam.other.name]
+                else:
+                    quantized = self._quantize_param(qparam)
+                    qvalue = self._unquantize_param(qparam, quantized)
+                    new_param = qparam.param + (qvalue - qparam.param).detach()
+                qparam.module._parameters[qparam.name] = new_param
+            return True
+        return False
+
+    def _post_forward_train(self):
+        if self.qat:
+            for qparam in self._qparams:
+                qparam.module._parameters[qparam.name] = qparam.param
+            return True
+        return False
+
+    def _quantize_param(self, qparam):
+        levels, scales = uniform_quantize(qparam.param.data, torch.tensor(self.bits))
+        return (levels, scales)
+
+    def _unquantize_param(self, qparam, quantized):
+        levels, scales = quantized
+        return uniform_unquantize(levels, scales, torch.tensor(self.bits))
+
+    def _bit_pack_param(self, qparam, quantized, pack_fn):
+        levels, scales = quantized
+        packed = pack_fn(levels, self.bits)
+        return (packed, scales)
+
+    def _bit_unpack_param(self, qparam, packed, unpack_fn):
+        &#34;&#34;&#34;Unpack bitpacked representation. Should be overriden
+        &#34;&#34;&#34;
+        packed_levels, scales = packed
+        levels = unpack_fn(
+            packed_levels, qparam.param.numel()).to(qparam.param.device).view_as(qparam.param)
+        return (levels, scales)
+
+    def model_size(self):
+        &#34;&#34;&#34;
+        Non differentiable model size in MB.
+        &#34;&#34;&#34;
+        total = super().model_size()
+        subtotal = 0
+        for qparam in self._qparams:
+            if qparam.other is None:  # if parameter is bound, count only one copy.
+                subtotal += self.bits * qparam.param.numel() + 64  # 2 float for the overall scales
+        subtotal /= 2**20 * 8  # bits to MegaBytes
+        return total + subtotal
+
+    def true_model_size(self):
+        &#34;&#34;&#34;
+        Return the true quantized model size, in MB, without extra
+        compression.
+        &#34;&#34;&#34;
+        return self.model_size().item()</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="diffq.base.BaseQuantizer" href="base.html#diffq.base.BaseQuantizer">BaseQuantizer</a></li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="diffq.uniform.UniformQuantizer.model_size"><code class="name flex">
+<span>def <span class="ident">model_size</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Non differentiable model size in MB.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def model_size(self):
+    &#34;&#34;&#34;
+    Non differentiable model size in MB.
+    &#34;&#34;&#34;
+    total = super().model_size()
+    subtotal = 0
+    for qparam in self._qparams:
+        if qparam.other is None:  # if parameter is bound, count only one copy.
+            subtotal += self.bits * qparam.param.numel() + 64  # 2 float for the overall scales
+    subtotal /= 2**20 * 8  # bits to MegaBytes
+    return total + subtotal</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="diffq.base.BaseQuantizer" href="base.html#diffq.base.BaseQuantizer">BaseQuantizer</a></b></code>:
+<ul class="hlist">
+<li><code><a title="diffq.base.BaseQuantizer.compressed_model_size" href="base.html#diffq.base.BaseQuantizer.compressed_model_size">compressed_model_size</a></code></li>
+<li><code><a title="diffq.base.BaseQuantizer.detach" href="base.html#diffq.base.BaseQuantizer.detach">detach</a></code></li>
+<li><code><a title="diffq.base.BaseQuantizer.enter_quantize" href="base.html#diffq.base.BaseQuantizer.enter_quantize">enter_quantize</a></code></li>
+<li><code><a title="diffq.base.BaseQuantizer.get_quantized_state" href="base.html#diffq.base.BaseQuantizer.get_quantized_state">get_quantized_state</a></code></li>
+<li><code><a title="diffq.base.BaseQuantizer.packed_model_size" href="base.html#diffq.base.BaseQuantizer.packed_model_size">packed_model_size</a></code></li>
+<li><code><a title="diffq.base.BaseQuantizer.quantize" href="base.html#diffq.base.BaseQuantizer.quantize">quantize</a></code></li>
+<li><code><a title="diffq.base.BaseQuantizer.restore_quantized_state" href="base.html#diffq.base.BaseQuantizer.restore_quantized_state">restore_quantized_state</a></code></li>
+<li><code><a title="diffq.base.BaseQuantizer.true_model_size" href="base.html#diffq.base.BaseQuantizer.true_model_size">true_model_size</a></code></li>
+<li><code><a title="diffq.base.BaseQuantizer.unquantize" href="base.html#diffq.base.BaseQuantizer.unquantize">unquantize</a></code></li>
+</ul>
+</li>
+</ul>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<h1>Index</h1>
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="diffq" href="index.html">diffq</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="diffq.uniform.uniform_quantize" href="#diffq.uniform.uniform_quantize">uniform_quantize</a></code></li>
+<li><code><a title="diffq.uniform.uniform_unquantize" href="#diffq.uniform.uniform_unquantize">uniform_unquantize</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="diffq.uniform.UniformQuantizer" href="#diffq.uniform.UniformQuantizer">UniformQuantizer</a></code></h4>
+<ul class="">
+<li><code><a title="diffq.uniform.UniformQuantizer.model_size" href="#diffq.uniform.UniformQuantizer.model_size">model_size</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.10.0</a>.</p>
+</footer>
+</body>
+</html>

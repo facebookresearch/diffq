@@ -1,0 +1,948 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+<meta name="generator" content="pdoc 0.10.0" />
+<title>diffq.diffq API documentation</title>
+<meta name="description" content="Differentiable quantizer based on scaled noise injection." />
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
+<link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js" integrity="sha256-Uv3H6lx7dJmRfRvH8TH6kJD1TSK1aFcwgx+mdg3epi8=" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => hljs.initHighlighting())</script>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>diffq.diffq</code></h1>
+</header>
+<section id="section-intro">
+<p>Differentiable quantizer based on scaled noise injection.</p>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python"># Copyright (c) Facebook, Inc. and its affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the license found in the
+# LICENSE file in the root directory of this source tree.
+
+&#34;&#34;&#34;
+Differentiable quantizer based on scaled noise injection.
+&#34;&#34;&#34;
+from dataclasses import dataclass
+import math
+import typing as tp
+
+import torch
+
+from .base import BaseQuantizer
+from .uniform import uniform_quantize, uniform_unquantize
+from .utils import capture_init, simple_repr
+
+
+class DiffQuantizer(BaseQuantizer):
+    @dataclass
+    class _QuantizedParam(BaseQuantizer._QuantizedParam):
+        logit: torch.nn.Parameter
+
+    @capture_init
+    def __init__(self, model: torch.nn.Module, min_size: float = 0.01, float16: bool = False,
+                 group_size: int = 1, min_bits: float = 2, max_bits: float = 15,
+                 param=&#34;bits&#34;, noise=&#34;gaussian&#34;,
+                 init_bits: float = 8, extra_bits: float = 0, suffix: str = &#34;_diffq&#34;,
+                 exclude: tp.List[str] = [], detect_bound: bool = True):
+        &#34;&#34;&#34;
+        Differentiable quantizer based on scaled noise injection.
+        For every parameter `p` in the model, this introduces a number of bits parameter
+        `b` with the same dimensions (when group_size = 1).
+        Before each forward, `p` is replaced by `p + U`
+        with U uniform iid noise with range [-d/2, d/2], with `d` the uniform quantization
+        step for `b` bits.
+        This noise approximates the quantization noise in a differentiable manner, both
+        with respect to the unquantized parameter `p` and the number of bits `b`.
+
+        At eveluation (as detected with `model.eval()`), the model is replaced
+        by its true quantized version, and restored when going back to training.
+
+        When doing actual quantization (for serialization, or evaluation),
+        the number of bits is rounded to the nearest integer, and needs to be stored along.
+        This will cost a few bits per dimension. To reduce this cost, one can use `group_size`,
+        which will use a single noise level for multiple weight entries.
+
+        You can use the `DiffQuantizer.model_size` method to get a differentiable estimate of the
+        model size in MB. You can then use this estimate as a penalty in your training loss.
+
+        Args:
+            model (torch.nn.Module): model to quantize
+            min_size (float): minimum size in MB of a parameter to be quantized.
+            float16 (bool): if a layer is smaller than min_size, should we still do float16?
+            group_size (int): weight entries are groupped together to reduce the number
+                of noise scales to store. This should divide the size of all parameters
+                bigger than min_size.
+            min_bits (float): minimal number of bits.
+            max_bits (float): maximal number of bits.
+            init_bits (float): initial number of bits.
+            extra_bits (float): extra bits to add for actual quantization (before roundoff).
+            suffix (str): suffix used for the name of the extra noise scale parameters.
+            exclude (list[str]): list of patterns used to match parameters to exclude.
+                For instance `[&#39;bias&#39;]` to exclude all bias terms.
+            detect_bound (bool): if True, will detect bound parameters and reuse
+                the same quantized tensor for both, as well as the same number of bits.
+
+        ..Warning::
+            You must call `model.training()` and `model.eval()` for `DiffQuantizer` work properly.
+
+        &#34;&#34;&#34;
+        self.group_size = group_size
+        self.min_bits = min_bits
+        self.max_bits = max_bits
+        self.init_bits = init_bits
+        self.extra_bits = extra_bits
+        self.suffix = suffix
+        self.param = param
+        self.noise = noise
+        assert noise in [&#34;gaussian&#34;, &#34;uniform&#34;]
+        self._optimizer_setup = False
+
+        self._min_noise = 1 / (2 ** self.max_bits - 1)
+        self._max_noise = 1 / (2 ** self.min_bits - 1)
+
+        assert group_size &gt;= 0
+        assert min_bits &lt; init_bits &lt; max_bits, \
+               &#34;init_bits must be between min_bits and max_bits excluded3&#34;
+
+        for name, _ in model.named_parameters():
+            if name.endswith(suffix):
+                raise RuntimeError(&#34;The model already has some noise scales parameters, &#34;
+                                   &#34;maybe you used twice a DiffQuantizer on the same model?.&#34;)
+
+        super().__init__(model, min_size, float16, exclude, detect_bound)
+
+    def _get_bits(self, logit: torch.Tensor):
+        if self.param == &#34;noise&#34;:
+            return torch.log2(1 + 1 / self._get_noise_scale(logit))
+        else:
+            t = torch.sigmoid(logit)
+            return self.max_bits * t + (1 - t) * self.min_bits
+
+    def _get_noise_scale(self, logit: torch.Tensor):
+        if self.param == &#34;noise&#34;:
+            t = torch.sigmoid(logit)
+            return torch.exp(t * math.log(self._min_noise) + (1 - t) * math.log(self._max_noise))
+        else:
+            return 1 / (2 ** self._get_bits(logit) - 1)
+
+    def _register_param(self, name, param, module, other):
+        if other is not None:
+            return self.__class__._QuantizedParam(
+               name=name, param=param, module=module, logit=other.logit, other=other)
+        assert self.group_size == 0 or param.numel() % self.group_size == 0
+        # we want the initial number of bits to be init_bits.
+        if self.param == &#34;noise&#34;:
+            noise_scale = 1 / (2 ** self.init_bits - 1)
+            t = (math.log(noise_scale) - math.log(self._max_noise)) / (
+                math.log(self._min_noise) - math.log(self._max_noise))
+        else:
+            t = (self.init_bits - self.min_bits) / (self.max_bits - self.min_bits)
+        assert 0 &lt; t &lt; 1
+        logit = torch.logit(torch.tensor(float(t)))
+        assert abs(self._get_bits(logit) - self.init_bits) &lt; 1e-5
+        if self.group_size &gt; 0:
+            nparam = param.numel() // self.group_size
+        else:
+            nparam = 1
+        logit = torch.nn.Parameter(
+            torch.full(
+                (nparam,),
+                logit,
+                device=param.device))
+        module.register_parameter(name + self.suffix, logit)
+        return self.__class__._QuantizedParam(
+           name=name, param=param, module=module, logit=logit, other=None)
+
+    def clear_optimizer(self, optimizer: torch.optim.Optimizer):
+        params = [qp.logit for qp in self._qparams]
+
+        for group in optimizer.param_groups:
+            new_params = []
+            for q in list(group[&#34;params&#34;]):
+                matched = False
+                for p in params:
+                    if p is q:
+                        matched = True
+                if not matched:
+                    new_params.append(q)
+            group[&#34;params&#34;][:] = new_params
+
+    def setup_optimizer(self, optimizer: torch.optim.Optimizer,
+                        lr: float = 1e-3, **kwargs):
+        &#34;&#34;&#34;
+        Setup the optimizer to tune the number of bits. In particular, this will deactivate
+        weight decay for the bits parameters.
+
+        Args:
+            optimizer (torch.Optimizer): optimizer to use.
+            lr (float): specific learning rate for the bits parameters. 1e-3
+                is perfect for Adam.,w
+            kwargs (dict): overrides for other optimization parameters for the bits.
+        &#34;&#34;&#34;
+        assert not self._optimizer_setup
+        self._optimizer_setup = True
+
+        params = [qp.logit for qp in self._qparams]
+
+        for group in optimizer.param_groups:
+            for q in list(group[&#34;params&#34;]):
+                for p in params:
+                    if p is q:
+                        raise RuntimeError(&#34;You should create the optimizer &#34;
+                                           &#34;before the quantizer!&#34;)
+
+        group = {&#34;params&#34;: params, &#34;lr&#34;: lr, &#34;weight_decay&#34;: 0}
+        group.update(kwargs)
+        optimizer.add_param_group(group)
+
+    def no_optimizer(self):
+        &#34;&#34;&#34;
+        Call this if you do not want to use an optimizer.
+        &#34;&#34;&#34;
+        self._optimizer_setup = True
+
+    def check_unused(self):
+        for qparam in self._qparams:
+            if qparam.other is not None:
+                continue
+            grad = qparam.param.grad
+            if grad is None or (grad == 0).all():
+                if qparam.logit.grad is not None:
+                    qparam.logit.grad.data.zero_()
+
+    def model_size(self, exact=False):
+        &#34;&#34;&#34;
+        Differentiable estimate of the model size.
+        The size is returned in MB.
+
+        If `exact` is True, then the output is no longer differentiable but
+        reflect exactly an achievable size, even without compression,
+        i.e.same as returned by `naive_model_size()`.
+        &#34;&#34;&#34;
+        total = super().model_size()
+        subtotal = 0
+        for qparam in self._qparams:
+            # only count the first appearance of a Parameter
+            if qparam.other is not None:
+                continue
+            bits = self.extra_bits + self._get_bits(qparam.logit)
+            if exact:
+                bits = bits.round().clamp(1, 15)
+            if self.group_size == 0:
+                group_size = qparam.param.numel()
+            else:
+                group_size = self.group_size
+            subtotal += group_size * bits.sum()
+            subtotal += 2 * 32  # param scale
+
+            # Number of bits to represent each number of bits
+            bits_bits = math.ceil(math.log2(1 + (bits.max().round().item() - self.min_bits)))
+            subtotal += 8  # 8 bits for bits_bits
+            subtotal += bits_bits * bits.numel()
+
+        subtotal /= 2 ** 20 * 8  # bits -&gt; MegaBytes
+        return total + subtotal
+
+    def true_model_size(self):
+        &#34;&#34;&#34;
+        Naive model size without zlib compression.
+        &#34;&#34;&#34;
+        return self.model_size(exact=True).item()
+
+    def _pre_forward_train(self):
+        if not self._optimizer_setup:
+            raise RuntimeError(&#34;You must call `setup_optimizer()` on your optimizer &#34;
+                               &#34;before starting training.&#34;)
+        for qparam in self._qparams:
+            if qparam.other is not None:
+                noisy = qparam.other.module._parameters[qparam.other.name]
+            else:
+                bits = self._get_bits(qparam.logit)[:, None]
+                if self.group_size == 0:
+                    p_flat = qparam.param.view(-1)
+                else:
+                    p_flat = qparam.param.view(-1, self.group_size)
+                scale = p_flat.max() - p_flat.min()
+                unit = 1 / (2**bits - 1)
+                if self.noise == &#34;uniform&#34;:
+                    noise_source = (torch.rand_like(p_flat) - 0.5)
+                elif self.noise == &#34;gaussian&#34;:
+                    noise_source = torch.randn_like(p_flat) / 2
+                noise = scale * unit * noise_source
+                noisy = p_flat + noise
+            # We bypass the checks by PyTorch on parameters being leafs
+            qparam.module._parameters[qparam.name] = noisy.view_as(qparam.param)
+        return True
+
+    def _post_forward_train(self):
+        for qparam in self._qparams:
+            qparam.module._parameters[qparam.name] = qparam.param
+        return True
+
+    def _quantize_param(self, qparam: _QuantizedParam) -&gt; tp.Any:
+        bits = self.extra_bits + self._get_bits(qparam.logit)
+        bits = bits.round().clamp(1, 15)[:, None].byte()
+        if self.group_size == 0:
+            p = qparam.param.data.view(1, -1)
+        else:
+            p = qparam.param.data.view(-1, self.group_size)
+        levels, scales = uniform_quantize(p, bits)
+        return levels, scales, bits[:, 0]
+
+    def _unquantize_param(self, qparam: _QuantizedParam, quantized: tp.Any) -&gt; torch.Tensor:
+        levels, param_scale, bits = quantized
+        if bits.dim() == 1:
+            bits = bits[:, None]
+        return uniform_unquantize(levels, param_scale, bits).view_as(qparam.param.data)
+
+    def _bit_pack_param(self, qparam, quantized, pack_fn):
+        levels, scales, bits = quantized
+        all_packed = []
+        for bit in range(1, 15):
+            sub_levels = levels[bits == bit]
+            if not sub_levels.numel():
+                all_packed.append(None)
+            else:
+                packed = pack_fn(sub_levels, bit)
+                all_packed.append(packed)
+        packed_bits = pack_fn(bits - self.min_bits)
+        return (all_packed, scales, packed_bits)
+
+    def _bit_unpack_param(self, qparam, packed, unpack_fn):
+        &#34;&#34;&#34;Unpack bitpacked representation. Should be overriden.
+        &#34;&#34;&#34;
+        packed_all_levels, scales, packed_bits = packed
+        bits = unpack_fn(packed_bits, qparam.logit.numel()) + self.min_bits
+        bits = bits.to(qparam.param.device)
+        levels = torch.empty(qparam.logit.numel(), self.group_size,
+                             dtype=torch.short, device=qparam.param.device)
+        for idx, packed_levels in enumerate(packed_all_levels):
+            bit = idx + 1
+            if packed_levels is None:
+                continue
+            sub_levels = levels[bits == bit]
+            levels[bits == bit] = unpack_fn(
+                packed_levels, sub_levels.numel()).view_as(sub_levels).to(sub_levels)
+        return (levels, scales, bits)
+
+    def detach(self):
+        super().detach()
+        for qparam in self._qparams:
+            delattr(qparam.module, qparam.name + self.suffix)
+
+    def __repr__(self):
+        return simple_repr(self)</code></pre>
+</details>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="diffq.diffq.DiffQuantizer"><code class="flex name class">
+<span>class <span class="ident">DiffQuantizer</span></span>
+<span>(</span><span>model: torch.nn.modules.module.Module, min_size: float = 0.01, float16: bool = False, group_size: int = 1, min_bits: float = 2, max_bits: float = 15, param='bits', noise='gaussian', init_bits: float = 8, extra_bits: float = 0, suffix: str = '_diffq', exclude: List[str] = [], detect_bound: bool = True)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Differentiable quantizer based on scaled noise injection.
+For every parameter <code>p</code> in the model, this introduces a number of bits parameter
+<code>b</code> with the same dimensions (when group_size = 1).
+Before each forward, <code>p</code> is replaced by <code>p + U</code>
+with U uniform iid noise with range [-d/2, d/2], with <code>d</code> the uniform quantization
+step for <code>b</code> bits.
+This noise approximates the quantization noise in a differentiable manner, both
+with respect to the unquantized parameter <code>p</code> and the number of bits <code>b</code>.</p>
+<p>At eveluation (as detected with <code>model.eval()</code>), the model is replaced
+by its true quantized version, and restored when going back to training.</p>
+<p>When doing actual quantization (for serialization, or evaluation),
+the number of bits is rounded to the nearest integer, and needs to be stored along.
+This will cost a few bits per dimension. To reduce this cost, one can use <code>group_size</code>,
+which will use a single noise level for multiple weight entries.</p>
+<p>You can use the <code><a title="diffq.diffq.DiffQuantizer.model_size" href="#diffq.diffq.DiffQuantizer.model_size">DiffQuantizer.model_size()</a></code> method to get a differentiable estimate of the
+model size in MB. You can then use this estimate as a penalty in your training loss.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>model</code></strong> :&ensp;<code>torch.nn.Module</code></dt>
+<dd>model to quantize</dd>
+<dt><strong><code>min_size</code></strong> :&ensp;<code>float</code></dt>
+<dd>minimum size in MB of a parameter to be quantized.</dd>
+<dt><strong><code>float16</code></strong> :&ensp;<code>bool</code></dt>
+<dd>if a layer is smaller than min_size, should we still do float16?</dd>
+<dt><strong><code>group_size</code></strong> :&ensp;<code>int</code></dt>
+<dd>weight entries are groupped together to reduce the number
+of noise scales to store. This should divide the size of all parameters
+bigger than min_size.</dd>
+<dt><strong><code>min_bits</code></strong> :&ensp;<code>float</code></dt>
+<dd>minimal number of bits.</dd>
+<dt><strong><code>max_bits</code></strong> :&ensp;<code>float</code></dt>
+<dd>maximal number of bits.</dd>
+<dt><strong><code>init_bits</code></strong> :&ensp;<code>float</code></dt>
+<dd>initial number of bits.</dd>
+<dt><strong><code>extra_bits</code></strong> :&ensp;<code>float</code></dt>
+<dd>extra bits to add for actual quantization (before roundoff).</dd>
+<dt><strong><code>suffix</code></strong> :&ensp;<code>str</code></dt>
+<dd>suffix used for the name of the extra noise scale parameters.</dd>
+<dt><strong><code>exclude</code></strong> :&ensp;<code>list[str]</code></dt>
+<dd>list of patterns used to match parameters to exclude.
+For instance <code>['bias']</code> to exclude all bias terms.</dd>
+<dt><strong><code>detect_bound</code></strong> :&ensp;<code>bool</code></dt>
+<dd>if True, will detect bound parameters and reuse
+the same quantized tensor for both, as well as the same number of bits.</dd>
+</dl>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>You must call <code>model.training()</code> and <code>model.eval()</code> for <code><a title="diffq.diffq.DiffQuantizer" href="#diffq.diffq.DiffQuantizer">DiffQuantizer</a></code> work properly.</p>
+</div></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class DiffQuantizer(BaseQuantizer):
+    @dataclass
+    class _QuantizedParam(BaseQuantizer._QuantizedParam):
+        logit: torch.nn.Parameter
+
+    @capture_init
+    def __init__(self, model: torch.nn.Module, min_size: float = 0.01, float16: bool = False,
+                 group_size: int = 1, min_bits: float = 2, max_bits: float = 15,
+                 param=&#34;bits&#34;, noise=&#34;gaussian&#34;,
+                 init_bits: float = 8, extra_bits: float = 0, suffix: str = &#34;_diffq&#34;,
+                 exclude: tp.List[str] = [], detect_bound: bool = True):
+        &#34;&#34;&#34;
+        Differentiable quantizer based on scaled noise injection.
+        For every parameter `p` in the model, this introduces a number of bits parameter
+        `b` with the same dimensions (when group_size = 1).
+        Before each forward, `p` is replaced by `p + U`
+        with U uniform iid noise with range [-d/2, d/2], with `d` the uniform quantization
+        step for `b` bits.
+        This noise approximates the quantization noise in a differentiable manner, both
+        with respect to the unquantized parameter `p` and the number of bits `b`.
+
+        At eveluation (as detected with `model.eval()`), the model is replaced
+        by its true quantized version, and restored when going back to training.
+
+        When doing actual quantization (for serialization, or evaluation),
+        the number of bits is rounded to the nearest integer, and needs to be stored along.
+        This will cost a few bits per dimension. To reduce this cost, one can use `group_size`,
+        which will use a single noise level for multiple weight entries.
+
+        You can use the `DiffQuantizer.model_size` method to get a differentiable estimate of the
+        model size in MB. You can then use this estimate as a penalty in your training loss.
+
+        Args:
+            model (torch.nn.Module): model to quantize
+            min_size (float): minimum size in MB of a parameter to be quantized.
+            float16 (bool): if a layer is smaller than min_size, should we still do float16?
+            group_size (int): weight entries are groupped together to reduce the number
+                of noise scales to store. This should divide the size of all parameters
+                bigger than min_size.
+            min_bits (float): minimal number of bits.
+            max_bits (float): maximal number of bits.
+            init_bits (float): initial number of bits.
+            extra_bits (float): extra bits to add for actual quantization (before roundoff).
+            suffix (str): suffix used for the name of the extra noise scale parameters.
+            exclude (list[str]): list of patterns used to match parameters to exclude.
+                For instance `[&#39;bias&#39;]` to exclude all bias terms.
+            detect_bound (bool): if True, will detect bound parameters and reuse
+                the same quantized tensor for both, as well as the same number of bits.
+
+        ..Warning::
+            You must call `model.training()` and `model.eval()` for `DiffQuantizer` work properly.
+
+        &#34;&#34;&#34;
+        self.group_size = group_size
+        self.min_bits = min_bits
+        self.max_bits = max_bits
+        self.init_bits = init_bits
+        self.extra_bits = extra_bits
+        self.suffix = suffix
+        self.param = param
+        self.noise = noise
+        assert noise in [&#34;gaussian&#34;, &#34;uniform&#34;]
+        self._optimizer_setup = False
+
+        self._min_noise = 1 / (2 ** self.max_bits - 1)
+        self._max_noise = 1 / (2 ** self.min_bits - 1)
+
+        assert group_size &gt;= 0
+        assert min_bits &lt; init_bits &lt; max_bits, \
+               &#34;init_bits must be between min_bits and max_bits excluded3&#34;
+
+        for name, _ in model.named_parameters():
+            if name.endswith(suffix):
+                raise RuntimeError(&#34;The model already has some noise scales parameters, &#34;
+                                   &#34;maybe you used twice a DiffQuantizer on the same model?.&#34;)
+
+        super().__init__(model, min_size, float16, exclude, detect_bound)
+
+    def _get_bits(self, logit: torch.Tensor):
+        if self.param == &#34;noise&#34;:
+            return torch.log2(1 + 1 / self._get_noise_scale(logit))
+        else:
+            t = torch.sigmoid(logit)
+            return self.max_bits * t + (1 - t) * self.min_bits
+
+    def _get_noise_scale(self, logit: torch.Tensor):
+        if self.param == &#34;noise&#34;:
+            t = torch.sigmoid(logit)
+            return torch.exp(t * math.log(self._min_noise) + (1 - t) * math.log(self._max_noise))
+        else:
+            return 1 / (2 ** self._get_bits(logit) - 1)
+
+    def _register_param(self, name, param, module, other):
+        if other is not None:
+            return self.__class__._QuantizedParam(
+               name=name, param=param, module=module, logit=other.logit, other=other)
+        assert self.group_size == 0 or param.numel() % self.group_size == 0
+        # we want the initial number of bits to be init_bits.
+        if self.param == &#34;noise&#34;:
+            noise_scale = 1 / (2 ** self.init_bits - 1)
+            t = (math.log(noise_scale) - math.log(self._max_noise)) / (
+                math.log(self._min_noise) - math.log(self._max_noise))
+        else:
+            t = (self.init_bits - self.min_bits) / (self.max_bits - self.min_bits)
+        assert 0 &lt; t &lt; 1
+        logit = torch.logit(torch.tensor(float(t)))
+        assert abs(self._get_bits(logit) - self.init_bits) &lt; 1e-5
+        if self.group_size &gt; 0:
+            nparam = param.numel() // self.group_size
+        else:
+            nparam = 1
+        logit = torch.nn.Parameter(
+            torch.full(
+                (nparam,),
+                logit,
+                device=param.device))
+        module.register_parameter(name + self.suffix, logit)
+        return self.__class__._QuantizedParam(
+           name=name, param=param, module=module, logit=logit, other=None)
+
+    def clear_optimizer(self, optimizer: torch.optim.Optimizer):
+        params = [qp.logit for qp in self._qparams]
+
+        for group in optimizer.param_groups:
+            new_params = []
+            for q in list(group[&#34;params&#34;]):
+                matched = False
+                for p in params:
+                    if p is q:
+                        matched = True
+                if not matched:
+                    new_params.append(q)
+            group[&#34;params&#34;][:] = new_params
+
+    def setup_optimizer(self, optimizer: torch.optim.Optimizer,
+                        lr: float = 1e-3, **kwargs):
+        &#34;&#34;&#34;
+        Setup the optimizer to tune the number of bits. In particular, this will deactivate
+        weight decay for the bits parameters.
+
+        Args:
+            optimizer (torch.Optimizer): optimizer to use.
+            lr (float): specific learning rate for the bits parameters. 1e-3
+                is perfect for Adam.,w
+            kwargs (dict): overrides for other optimization parameters for the bits.
+        &#34;&#34;&#34;
+        assert not self._optimizer_setup
+        self._optimizer_setup = True
+
+        params = [qp.logit for qp in self._qparams]
+
+        for group in optimizer.param_groups:
+            for q in list(group[&#34;params&#34;]):
+                for p in params:
+                    if p is q:
+                        raise RuntimeError(&#34;You should create the optimizer &#34;
+                                           &#34;before the quantizer!&#34;)
+
+        group = {&#34;params&#34;: params, &#34;lr&#34;: lr, &#34;weight_decay&#34;: 0}
+        group.update(kwargs)
+        optimizer.add_param_group(group)
+
+    def no_optimizer(self):
+        &#34;&#34;&#34;
+        Call this if you do not want to use an optimizer.
+        &#34;&#34;&#34;
+        self._optimizer_setup = True
+
+    def check_unused(self):
+        for qparam in self._qparams:
+            if qparam.other is not None:
+                continue
+            grad = qparam.param.grad
+            if grad is None or (grad == 0).all():
+                if qparam.logit.grad is not None:
+                    qparam.logit.grad.data.zero_()
+
+    def model_size(self, exact=False):
+        &#34;&#34;&#34;
+        Differentiable estimate of the model size.
+        The size is returned in MB.
+
+        If `exact` is True, then the output is no longer differentiable but
+        reflect exactly an achievable size, even without compression,
+        i.e.same as returned by `naive_model_size()`.
+        &#34;&#34;&#34;
+        total = super().model_size()
+        subtotal = 0
+        for qparam in self._qparams:
+            # only count the first appearance of a Parameter
+            if qparam.other is not None:
+                continue
+            bits = self.extra_bits + self._get_bits(qparam.logit)
+            if exact:
+                bits = bits.round().clamp(1, 15)
+            if self.group_size == 0:
+                group_size = qparam.param.numel()
+            else:
+                group_size = self.group_size
+            subtotal += group_size * bits.sum()
+            subtotal += 2 * 32  # param scale
+
+            # Number of bits to represent each number of bits
+            bits_bits = math.ceil(math.log2(1 + (bits.max().round().item() - self.min_bits)))
+            subtotal += 8  # 8 bits for bits_bits
+            subtotal += bits_bits * bits.numel()
+
+        subtotal /= 2 ** 20 * 8  # bits -&gt; MegaBytes
+        return total + subtotal
+
+    def true_model_size(self):
+        &#34;&#34;&#34;
+        Naive model size without zlib compression.
+        &#34;&#34;&#34;
+        return self.model_size(exact=True).item()
+
+    def _pre_forward_train(self):
+        if not self._optimizer_setup:
+            raise RuntimeError(&#34;You must call `setup_optimizer()` on your optimizer &#34;
+                               &#34;before starting training.&#34;)
+        for qparam in self._qparams:
+            if qparam.other is not None:
+                noisy = qparam.other.module._parameters[qparam.other.name]
+            else:
+                bits = self._get_bits(qparam.logit)[:, None]
+                if self.group_size == 0:
+                    p_flat = qparam.param.view(-1)
+                else:
+                    p_flat = qparam.param.view(-1, self.group_size)
+                scale = p_flat.max() - p_flat.min()
+                unit = 1 / (2**bits - 1)
+                if self.noise == &#34;uniform&#34;:
+                    noise_source = (torch.rand_like(p_flat) - 0.5)
+                elif self.noise == &#34;gaussian&#34;:
+                    noise_source = torch.randn_like(p_flat) / 2
+                noise = scale * unit * noise_source
+                noisy = p_flat + noise
+            # We bypass the checks by PyTorch on parameters being leafs
+            qparam.module._parameters[qparam.name] = noisy.view_as(qparam.param)
+        return True
+
+    def _post_forward_train(self):
+        for qparam in self._qparams:
+            qparam.module._parameters[qparam.name] = qparam.param
+        return True
+
+    def _quantize_param(self, qparam: _QuantizedParam) -&gt; tp.Any:
+        bits = self.extra_bits + self._get_bits(qparam.logit)
+        bits = bits.round().clamp(1, 15)[:, None].byte()
+        if self.group_size == 0:
+            p = qparam.param.data.view(1, -1)
+        else:
+            p = qparam.param.data.view(-1, self.group_size)
+        levels, scales = uniform_quantize(p, bits)
+        return levels, scales, bits[:, 0]
+
+    def _unquantize_param(self, qparam: _QuantizedParam, quantized: tp.Any) -&gt; torch.Tensor:
+        levels, param_scale, bits = quantized
+        if bits.dim() == 1:
+            bits = bits[:, None]
+        return uniform_unquantize(levels, param_scale, bits).view_as(qparam.param.data)
+
+    def _bit_pack_param(self, qparam, quantized, pack_fn):
+        levels, scales, bits = quantized
+        all_packed = []
+        for bit in range(1, 15):
+            sub_levels = levels[bits == bit]
+            if not sub_levels.numel():
+                all_packed.append(None)
+            else:
+                packed = pack_fn(sub_levels, bit)
+                all_packed.append(packed)
+        packed_bits = pack_fn(bits - self.min_bits)
+        return (all_packed, scales, packed_bits)
+
+    def _bit_unpack_param(self, qparam, packed, unpack_fn):
+        &#34;&#34;&#34;Unpack bitpacked representation. Should be overriden.
+        &#34;&#34;&#34;
+        packed_all_levels, scales, packed_bits = packed
+        bits = unpack_fn(packed_bits, qparam.logit.numel()) + self.min_bits
+        bits = bits.to(qparam.param.device)
+        levels = torch.empty(qparam.logit.numel(), self.group_size,
+                             dtype=torch.short, device=qparam.param.device)
+        for idx, packed_levels in enumerate(packed_all_levels):
+            bit = idx + 1
+            if packed_levels is None:
+                continue
+            sub_levels = levels[bits == bit]
+            levels[bits == bit] = unpack_fn(
+                packed_levels, sub_levels.numel()).view_as(sub_levels).to(sub_levels)
+        return (levels, scales, bits)
+
+    def detach(self):
+        super().detach()
+        for qparam in self._qparams:
+            delattr(qparam.module, qparam.name + self.suffix)
+
+    def __repr__(self):
+        return simple_repr(self)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="diffq.base.BaseQuantizer" href="base.html#diffq.base.BaseQuantizer">BaseQuantizer</a></li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="diffq.diffq.DiffQuantizer.check_unused"><code class="name flex">
+<span>def <span class="ident">check_unused</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def check_unused(self):
+    for qparam in self._qparams:
+        if qparam.other is not None:
+            continue
+        grad = qparam.param.grad
+        if grad is None or (grad == 0).all():
+            if qparam.logit.grad is not None:
+                qparam.logit.grad.data.zero_()</code></pre>
+</details>
+</dd>
+<dt id="diffq.diffq.DiffQuantizer.clear_optimizer"><code class="name flex">
+<span>def <span class="ident">clear_optimizer</span></span>(<span>self, optimizer: torch.optim.optimizer.Optimizer)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def clear_optimizer(self, optimizer: torch.optim.Optimizer):
+    params = [qp.logit for qp in self._qparams]
+
+    for group in optimizer.param_groups:
+        new_params = []
+        for q in list(group[&#34;params&#34;]):
+            matched = False
+            for p in params:
+                if p is q:
+                    matched = True
+            if not matched:
+                new_params.append(q)
+        group[&#34;params&#34;][:] = new_params</code></pre>
+</details>
+</dd>
+<dt id="diffq.diffq.DiffQuantizer.model_size"><code class="name flex">
+<span>def <span class="ident">model_size</span></span>(<span>self, exact=False)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Differentiable estimate of the model size.
+The size is returned in MB.</p>
+<p>If <code>exact</code> is True, then the output is no longer differentiable but
+reflect exactly an achievable size, even without compression,
+i.e.same as returned by <code>naive_model_size()</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def model_size(self, exact=False):
+    &#34;&#34;&#34;
+    Differentiable estimate of the model size.
+    The size is returned in MB.
+
+    If `exact` is True, then the output is no longer differentiable but
+    reflect exactly an achievable size, even without compression,
+    i.e.same as returned by `naive_model_size()`.
+    &#34;&#34;&#34;
+    total = super().model_size()
+    subtotal = 0
+    for qparam in self._qparams:
+        # only count the first appearance of a Parameter
+        if qparam.other is not None:
+            continue
+        bits = self.extra_bits + self._get_bits(qparam.logit)
+        if exact:
+            bits = bits.round().clamp(1, 15)
+        if self.group_size == 0:
+            group_size = qparam.param.numel()
+        else:
+            group_size = self.group_size
+        subtotal += group_size * bits.sum()
+        subtotal += 2 * 32  # param scale
+
+        # Number of bits to represent each number of bits
+        bits_bits = math.ceil(math.log2(1 + (bits.max().round().item() - self.min_bits)))
+        subtotal += 8  # 8 bits for bits_bits
+        subtotal += bits_bits * bits.numel()
+
+    subtotal /= 2 ** 20 * 8  # bits -&gt; MegaBytes
+    return total + subtotal</code></pre>
+</details>
+</dd>
+<dt id="diffq.diffq.DiffQuantizer.no_optimizer"><code class="name flex">
+<span>def <span class="ident">no_optimizer</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Call this if you do not want to use an optimizer.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def no_optimizer(self):
+    &#34;&#34;&#34;
+    Call this if you do not want to use an optimizer.
+    &#34;&#34;&#34;
+    self._optimizer_setup = True</code></pre>
+</details>
+</dd>
+<dt id="diffq.diffq.DiffQuantizer.setup_optimizer"><code class="name flex">
+<span>def <span class="ident">setup_optimizer</span></span>(<span>self, optimizer: torch.optim.optimizer.Optimizer, lr: float = 0.001, **kwargs)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Setup the optimizer to tune the number of bits. In particular, this will deactivate
+weight decay for the bits parameters.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>optimizer</code></strong> :&ensp;<code>torch.Optimizer</code></dt>
+<dd>optimizer to use.</dd>
+<dt><strong><code>lr</code></strong> :&ensp;<code>float</code></dt>
+<dd>specific learning rate for the bits parameters. 1e-3
+is perfect for Adam.,w</dd>
+<dt><strong><code>kwargs</code></strong> :&ensp;<code>dict</code></dt>
+<dd>overrides for other optimization parameters for the bits.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def setup_optimizer(self, optimizer: torch.optim.Optimizer,
+                    lr: float = 1e-3, **kwargs):
+    &#34;&#34;&#34;
+    Setup the optimizer to tune the number of bits. In particular, this will deactivate
+    weight decay for the bits parameters.
+
+    Args:
+        optimizer (torch.Optimizer): optimizer to use.
+        lr (float): specific learning rate for the bits parameters. 1e-3
+            is perfect for Adam.,w
+        kwargs (dict): overrides for other optimization parameters for the bits.
+    &#34;&#34;&#34;
+    assert not self._optimizer_setup
+    self._optimizer_setup = True
+
+    params = [qp.logit for qp in self._qparams]
+
+    for group in optimizer.param_groups:
+        for q in list(group[&#34;params&#34;]):
+            for p in params:
+                if p is q:
+                    raise RuntimeError(&#34;You should create the optimizer &#34;
+                                       &#34;before the quantizer!&#34;)
+
+    group = {&#34;params&#34;: params, &#34;lr&#34;: lr, &#34;weight_decay&#34;: 0}
+    group.update(kwargs)
+    optimizer.add_param_group(group)</code></pre>
+</details>
+</dd>
+<dt id="diffq.diffq.DiffQuantizer.true_model_size"><code class="name flex">
+<span>def <span class="ident">true_model_size</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Naive model size without zlib compression.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def true_model_size(self):
+    &#34;&#34;&#34;
+    Naive model size without zlib compression.
+    &#34;&#34;&#34;
+    return self.model_size(exact=True).item()</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Inherited members</h3>
+<ul class="hlist">
+<li><code><b><a title="diffq.base.BaseQuantizer" href="base.html#diffq.base.BaseQuantizer">BaseQuantizer</a></b></code>:
+<ul class="hlist">
+<li><code><a title="diffq.base.BaseQuantizer.compressed_model_size" href="base.html#diffq.base.BaseQuantizer.compressed_model_size">compressed_model_size</a></code></li>
+<li><code><a title="diffq.base.BaseQuantizer.detach" href="base.html#diffq.base.BaseQuantizer.detach">detach</a></code></li>
+<li><code><a title="diffq.base.BaseQuantizer.enter_quantize" href="base.html#diffq.base.BaseQuantizer.enter_quantize">enter_quantize</a></code></li>
+<li><code><a title="diffq.base.BaseQuantizer.get_quantized_state" href="base.html#diffq.base.BaseQuantizer.get_quantized_state">get_quantized_state</a></code></li>
+<li><code><a title="diffq.base.BaseQuantizer.packed_model_size" href="base.html#diffq.base.BaseQuantizer.packed_model_size">packed_model_size</a></code></li>
+<li><code><a title="diffq.base.BaseQuantizer.quantize" href="base.html#diffq.base.BaseQuantizer.quantize">quantize</a></code></li>
+<li><code><a title="diffq.base.BaseQuantizer.restore_quantized_state" href="base.html#diffq.base.BaseQuantizer.restore_quantized_state">restore_quantized_state</a></code></li>
+<li><code><a title="diffq.base.BaseQuantizer.unquantize" href="base.html#diffq.base.BaseQuantizer.unquantize">unquantize</a></code></li>
+</ul>
+</li>
+</ul>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<h1>Index</h1>
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="diffq" href="index.html">diffq</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="diffq.diffq.DiffQuantizer" href="#diffq.diffq.DiffQuantizer">DiffQuantizer</a></code></h4>
+<ul class="two-column">
+<li><code><a title="diffq.diffq.DiffQuantizer.check_unused" href="#diffq.diffq.DiffQuantizer.check_unused">check_unused</a></code></li>
+<li><code><a title="diffq.diffq.DiffQuantizer.clear_optimizer" href="#diffq.diffq.DiffQuantizer.clear_optimizer">clear_optimizer</a></code></li>
+<li><code><a title="diffq.diffq.DiffQuantizer.model_size" href="#diffq.diffq.DiffQuantizer.model_size">model_size</a></code></li>
+<li><code><a title="diffq.diffq.DiffQuantizer.no_optimizer" href="#diffq.diffq.DiffQuantizer.no_optimizer">no_optimizer</a></code></li>
+<li><code><a title="diffq.diffq.DiffQuantizer.setup_optimizer" href="#diffq.diffq.DiffQuantizer.setup_optimizer">setup_optimizer</a></code></li>
+<li><code><a title="diffq.diffq.DiffQuantizer.true_model_size" href="#diffq.diffq.DiffQuantizer.true_model_size">true_model_size</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.10.0</a>.</p>
+</footer>
+</body>
+</html>
