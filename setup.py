@@ -8,6 +8,7 @@
 
 from pathlib import Path
 from setuptools import setup, Extension
+from Cython.Build import cythonize
 
 NAME = 'diffq'
 DESCRIPTION = ('Differentiable quantization framework for PyTorch.')
@@ -43,9 +44,9 @@ setup(
     url=URL,
     packages=['diffq'],
     install_requires=['Cython', 'numpy', 'torch'],
-    ext_modules=[Extension(
+    ext_modules=cythonize([Extension(
         "diffq.bitpack",
-        sources=["bitpack.pyx"])],
+        sources=["bitpack.pyx"])]),
     extras_require={'dev': ['coverage', 'flake8', 'pdoc3', 'torchvision']},
     include_package_data=True,
     license='Creative Commons Attribution-NonCommercial 4.0 International',
